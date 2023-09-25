@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>ROS2 A-Frame Example</title>
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+</head>
+
+<body>
+    <a-scene>
+        <a-box id="cube" position="0 1 -5" rotation="0 0 0" color="#4CC3D9"></a-box>
+        <a-sky color="#ECECEC"></a-sky>
+    </a-scene>
+
+    <!-- Place this script at the end of the body tag -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const socket = new WebSocket('ws://localhost:9090');
+
+            socket.addEventListener('open', function () {
+                console.log('Connected to ROSBridge WebSocket!');
+
+                let subscribe_msg = {
+                    op: 'subscribe',
+                    topic: '/target/pose',
+                    type: 'geometry_msgs/msg/Pose'
+                };
+                socket.send(JSON.stringify(subscribe_msg));
+            });
+
+            socket.addEventListener('message', function (event) {
+                let msg = JSON.parse(event.data);
+                let position = msg.msg.position;
+                let quaternion = msg.msg.orientation;
+
+                let object3D = new THREE.Object3D(); // Three.js object
+                object3D.quaternion.set(quaternion.x, quaternion.y, quaternion.z, quaternion.w);
+
+                // Convert quaternion to Euler angles
+                let euler = new THREE.Euler();
+                euler.setFromQuaternion(object3D.quaternion, 'YXZ');
+
+                // Convert radians to degrees
+                let rotation = {
+                    x: THREE.MathUtils.radToDeg(euler.x),
+                    y: THREE.MathUtils.radToDeg(euler.y),
+                    z: THREE.MathUtils.radToDeg(euler.z)
+                };
+
+                updateCubePose(position, rotation);
+            });
+
+        });
+
+        function updateCubePose(position, orientation) {
+            let cube = document.querySelector('#cube');
+            cube.setAttribute('position', { x: position.x, y: position.y, z: position.z });
+            cube.setAttribute('rotation', { x: orientation.x, y: orientation.y, z: orientation.z });
+        }
+
+    </script>
+</body>
+
+</html>

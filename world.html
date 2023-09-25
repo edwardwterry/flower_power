@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+
+</head>
+
+<body>
+    <script>
+        const socket = new WebSocket('ws://localhost:12345');  // Replace with your server's IP and port
+
+        function parseIncomingData(data) {
+            let components = data.split(",");
+            return [
+                { x: components[0], y: components[1], z: 0 },
+                { x: 0, y: 0, z: components[2] },
+            ];
+        }
+
+        socket.onopen = (event) => {
+            console.log('Connected to server');
+        };
+
+        socket.onmessage = (event) => {
+            var other_vehicle = document.querySelector("#other_vehicle");
+            var parsed = parseIncomingData(event.data);
+            // canoe.setAttribute("position", { x: parsed[0].x, y: parsed[0].y, z: parsed[0].z });
+            // canoe.setAttribute("rotation", { x: parsed[1].x, y: parsed[1].y, z: parsed[1].z });
+            // console.log('Received message: ' + event.data);
+        };
+
+        socket.onclose = (event) => {
+            if (event.wasClean) {
+                console.log(`Closed cleanly, code=${event.code}, reason=${event.reason}`);
+            } else {
+                console.error('Connection died');
+            }
+        };
+
+        socket.onerror = (error) => {
+            console.error(`WebSocket Error: ${error.message}`);
+        };
+
+        AFRAME.registerComponent('rotation-reader', {
+            tick: function () {
+                // `this.el` is the element.
+                // `object3D` is the three.js object.
+
+                // `rotation` is a three.js Euler using radians. `quaternion` also available.
+                // console.log(this.el.object3D.rotation);
+
+                // `position` is a three.js Vector3.
+                console.log(this.el.object3D.position);
+            }
+        });        
+    </script>
+    <a-scene>
+        <a-box id="other_vehicle" position="0 0 0" rotation="0 0 0" color="#4CC3D9"></a-box>
+        <a-sky color="#ECECEC"></a-sky>
+        <a-entity camera look-controls wasd-controls position="0 0.0 0" rotation-reader></a-entity>
+    </a-scene>
+</body>
+
+</html>
