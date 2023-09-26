@@ -9,8 +9,16 @@
 
 <body>
     <a-scene>
-        <a-box id="cube" position="0 1 -5" rotation="0 0 0" color="#4CC3D9"></a-box>
         <a-sky color="#ECECEC"></a-sky>
+
+        <a-assets>
+            <a-asset-item id="myModel"
+                src="https://edwardwterry.github.io/flower_power/assets/scene.gltf"></a-asset-item>
+        </a-assets>
+
+        <!-- Entities -->
+        <a-entity id="target" gltf-model="#myModel" position="0 0 0" rotation="0 0 0" scale="1 1 1"></a-entity>
+
     </a-scene>
 
     <!-- Place this script at the end of the body tag -->
@@ -54,9 +62,9 @@
         });
 
         function updateCubePose(position, orientation) {
-            let cube = document.querySelector('#cube');
-            cube.setAttribute('position', { x: position.x, y: position.y, z: position.z });
-            cube.setAttribute('rotation', { x: orientation.x, y: orientation.y, z: orientation.z });
+            let cube = document.querySelector('#target');
+            cube.setAttribute('position', { x: position.y, y: position.z, z: position.x });
+            cube.setAttribute('rotation', { x: orientation.x, y: orientation.z, z: orientation.y });
         }
 
     </script>

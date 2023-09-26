@@ -8,7 +8,7 @@ from .vehicle import OnlineVehicle, PrecomputedVehicle
 from geometry_msgs.msg import Pose
 
 class Simulator(Node):
-    def __init__(self, dt=0.25):
+    def __init__(self, dt=0.05):
         super().__init__('simulator')
         # self.server = Server('localhost', 12345)
         self.vehicles = {'target': PrecomputedVehicle(dt)}
@@ -24,7 +24,6 @@ class Simulator(Node):
         self.vehicles['target'].step()
         for name, vehicle in self.vehicles.items():
             pose_msg = vehicle.get_state()
-            # self.get_logger().info(str(pose_msg))
             self.pubs[name].publish(pose_msg)
     
     def sensor_callback(self, left_msg, right_msg):
