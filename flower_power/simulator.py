@@ -10,15 +10,15 @@ from geometry_msgs.msg import Pose
 class Simulator(Node):
     def __init__(self, dt=0.05):
         super().__init__('simulator')
-        # self.server = Server('localhost', 12345)
-        self.vehicles = {'target': PrecomputedVehicle(dt)}
-                        #  'ego': OnlineVehicle(self.dt)}
+        self.vehicles = {'target': PrecomputedVehicle(),
+                         'ego': OnlineVehicle()}
         self.timer = self.create_timer(dt, self.tick_callback)
         tss = TimeSynchronizer([Subscriber(self, Range, 'range_left', qos_profile=qos_profile_sensor_data),
                                 Subscriber(self, Range, 'range_right', qos_profile=qos_profile_sensor_data)],
                                 10)
-        # tss.registerCallback(self.sensor_callback)
-        self.pubs = {'target': self.create_publisher(Pose, 'target/pose', 10)}
+        tss.registerCallback(self.sensor_callback)
+        self.pubs = {'target': self.create_publisher(Pose, 'target/pose', 10),
+                     'ego': self.create_publisher(Pose, 'ego/pose', 10)}
 
     def tick_callback(self):
         self.vehicles['target'].step()
@@ -27,7 +27,7 @@ class Simulator(Node):
             self.pubs[name].publish(pose_msg)
     
     def sensor_callback(self, left_msg, right_msg):
-        self.vehicles['ego'].update(left_msg.range, right_msg.range)
+        self.vehicles['ego'].update(left_msg, right_msg)
         self.vehicles['ego'].step()
 
 def main():

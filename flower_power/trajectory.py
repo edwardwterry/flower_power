@@ -28,7 +28,7 @@ class PrecomputedTrajectory:
             speed = data['speed']
 
     def get_trajectory_points(self, periodic=True):
-        points = self.scipy_bspline(self.control_points, n=100, degree=3, periodic=periodic)
+        points = self.scipy_bspline(self.control_points, n=400, degree=3, periodic=periodic)
         return points
 
     def get_trajectory_length(trajectory_points):

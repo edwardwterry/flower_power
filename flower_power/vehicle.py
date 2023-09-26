@@ -3,33 +3,48 @@ import math
 from .trajectory import PrecomputedTrajectory
 from queue import Queue
 from geometry_msgs.msg import Pose
+from sensor_msgs.msg import Range
 from scipy.spatial.transform import Rotation as R
 
 from collections import deque
 
-class MovingWindowFilter:
-    def __init__(self, window_size):
+class RealTimeOutlierFilter:
+    def __init__(self, window_size=10, threshold=2.0):
         self.window_size = window_size
-        self.buffer = deque(maxlen=window_size)
-        self.total = 0.0
+        self.threshold = threshold
+        self.window = []
     
-    def add(self, value):
-        if len(self.buffer) == self.window_size:
-            self.total -= self.buffer[0]
-        self.buffer.append(value)
-        self.total += value
-    
-    def get_average(self):
-        if not self.buffer:
-            return 0.0  # or raise an exception if preferred
-        return self.total / len(self.buffer)
+    def add_data_point(self, data_point):
+        if len(self.window) >= self.window_size:
+            self.window.pop(0)
+        self.window.append(data_point)
+        
+    def is_outlier(self, data_point):
+        if len(self.window) < self.window_size:
+            return False  # Not enough data to determine
+        
+        avg = sum(self.window) / len(self.window)
+        std_dev = (sum([(dp - avg) ** 2 for dp in self.window]) / len(self.window)) ** 0.5
+        
+        z_score = (data_point - avg) / std_dev if std_dev != 0 else 0
+        return abs(z_score) > self.threshold
+
+
+# filter = RealTimeOutlierFilter(window_size=10, threshold=2.0)
+
+# # Example Usage
+# data_points = [10, 12, 14, 16, 10, 13, 10, 200, 12, 14, 12, 14, 13, 10, 12]
+
+# for data_point in data_points:
+#     filter.add_data_point(data_point)
+#     if filter.is_outlier(data_point):
+#         print(f"{data_point} is an outlier")
+
 
 
 class Vehicle:
-    def __init__(self, dt):
+    def __init__(self):
         self.X = Pose()
-
-        self.dt = dt
 
     def step(self):
         # do physics here
@@ -40,8 +55,11 @@ class Vehicle:
     
 class OnlineVehicle(Vehicle):
     def __init__(self):
+        super().__init__()
         self.xd = Pose()
-        self.distances = {'left': Queue(), 'right': Queue()}
+        self.measurements_filtered = {'left': Queue(maxsize=100), 'right': Queue(maxsize=100)}
+        self.filter = {'left': RealTimeOutlierFilter(),
+                       'right': RealTimeOutlierFilter()}
 
         self.F = {'left': 0.0, 'right': 0.0}
 
@@ -52,18 +70,22 @@ class OnlineVehicle(Vehicle):
         
     def update(self, left, right):
         # if either measurement is spurious, ignore it
-        self.distances['left'].put(left)
-        self.distances['right'].put(right)
+        self.filter['left'].add_data_point(left.range)
+        self.filter['right'].add_data_point(right.range)
+        if not self.filter['left'].is_outlier(left.range):
+            print('putting left', left.range)
+            self.measurements_filtered['left'].put(left)
+        if not self.filter['right'].is_outlier(right.range):
+            print('putting left', right.range)
+            self.measurements_filtered['right'].put(right)
 
-    def filter_outliers(self):
-        pass
 
     def step(self):
         pass
 
 class PrecomputedVehicle(Vehicle):
-    def __init__(self, dt, trajectory_params_yaml='/home/ed/Projects/flower_power/flower_power/config.yaml'):
-        super().__init__(dt)
+    def __init__(self, trajectory_params_yaml='/home/ed/Projects/flower_power/flower_power/config.yaml'):
+        super().__init__()
         self.trajectory = PrecomputedTrajectory(trajectory_params_yaml).get_trajectory_points(periodic=True)[:-1]
         self.index = 0
         self.first = True
