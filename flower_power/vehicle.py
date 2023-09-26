@@ -64,12 +64,14 @@ class OnlineVehicle(Vehicle):
 class PrecomputedVehicle(Vehicle):
     def __init__(self, dt, trajectory_params_yaml='/home/ed/Projects/flower_power/flower_power/config.yaml'):
         super().__init__(dt)
-        self.trajectory = PrecomputedTrajectory(trajectory_params_yaml).get_trajectory_points()
+        self.trajectory = PrecomputedTrajectory(trajectory_params_yaml).get_trajectory_points(periodic=True)[:-1]
         self.index = 0
+        self.first = True
 
     def step(self):
-        if self.index == 0:
+        if self.first:
             yaw = 0.0
+            self.first = False
         else:
             prev = self.trajectory[self.index - 1]
             curr = self.trajectory[self.index]
@@ -82,7 +84,6 @@ class PrecomputedVehicle(Vehicle):
         self.X.orientation.z = q[2]
         self.X.orientation.w = q[3]
 
-        print(len(self.trajectory))
         self.index = (self.index + 1) % len(self.trajectory)
 
 #   var dt = t_curr - t_prev;
