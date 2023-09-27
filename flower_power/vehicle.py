@@ -2,11 +2,14 @@ import numpy as np
 import math
 from .trajectory import PrecomputedTrajectory
 from queue import Queue
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import Pose, Accel
 from sensor_msgs.msg import Range
 from scipy.spatial.transform import Rotation as R
 
 from collections import deque
+
+def stamp_to_sec(stamp):
+    return stamp.sec + stamp.nanosec * 1e-9
 
 class RealTimeOutlierFilter:
     def __init__(self, window_size=10, threshold=2.0):
@@ -29,22 +32,44 @@ class RealTimeOutlierFilter:
         z_score = (data_point - avg) / std_dev if std_dev != 0 else 0
         return abs(z_score) > self.threshold
 
+class RingBuffer:
+    def __init__(self, size=10):
+        self.size = size
+        self.buffer = [None] * size
+        self.idx = 0
+        self.full = False
 
-# filter = RealTimeOutlierFilter(window_size=10, threshold=2.0)
+    def add(self, element):
+        self.buffer[self.idx] = element
+        if self.idx + 1 >= self.size:
+            self.full = True
+        self.idx = (self.idx + 1) % self.size
 
-# # Example Usage
-# data_points = [10, 12, 14, 16, 10, 13, 10, 200, 12, 14, 12, 14, 13, 10, 12]
+    def get_all_elements(self):
+        if not self.full:
+            return self.buffer[:self.idx]
+        else:
+            return self.buffer[self.idx:] + self.buffer[:self.idx]
+    
+    def average_pair_gradient(self):
+        gradient = 0.0
+        if not self.full:
+            return gradient
+        elms = self.get_all_elements()
+        for i in range(1, len(elms)):
+            t_prev = stamp_to_sec(elms[i-1].header.stamp)
+            t_curr = stamp_to_sec(elms[i].header.stamp)
+            dt = t_curr - t_prev
 
-# for data_point in data_points:
-#     filter.add_data_point(data_point)
-#     if filter.is_outlier(data_point):
-#         print(f"{data_point} is an outlier")
-
-
+            d_prev = elms[i-1].range
+            d_curr = elms[i].range
+            gradient += (d_curr - d_prev) / dt
+        return gradient
 
 class Vehicle:
     def __init__(self):
         self.X = Pose()
+        self.Xd = Accel()
 
     def step(self):
         # do physics here
@@ -53,11 +78,14 @@ class Vehicle:
     def get_state(self):
         return self.X
     
+    def linear_velocity_abs(self):
+        return np.linalg.norm(self.Xd.linear.x ** 2 + self.Xd.linear.y ** 2)
+
 class OnlineVehicle(Vehicle):
     def __init__(self):
         super().__init__()
         self.xd = Pose()
-        self.measurements_filtered = {'left': Queue(maxsize=100), 'right': Queue(maxsize=100)}
+        self.measurements_filtered = {'left': RingBuffer(), 'right': RingBuffer()}
         self.filter = {'left': RealTimeOutlierFilter(),
                        'right': RealTimeOutlierFilter()}
 
@@ -66,22 +94,87 @@ class OnlineVehicle(Vehicle):
         # Physical parameters
         self.m = 1.0
         self.I = 1.0
-        self.Cd = 1.0
+        self.Cd_linear = 10.0
+        self.Cd_angular = 1.0
+        self.dy = 0.5
         
     def update(self, left, right):
         # if either measurement is spurious, ignore it
         self.filter['left'].add_data_point(left.range)
         self.filter['right'].add_data_point(right.range)
         if not self.filter['left'].is_outlier(left.range):
-            print('putting left', left.range)
-            self.measurements_filtered['left'].put(left)
+            # print('putting left', left)
+            self.measurements_filtered['left'].add(left)
         if not self.filter['right'].is_outlier(right.range):
-            print('putting left', right.range)
-            self.measurements_filtered['right'].put(right)
+            # print('putting right', right)
+            self.measurements_filtered['right'].add(right)
 
+
+    
+    def average_gradient(self, measurements, window=10):
+        gradient = 0.0
+        if len(measurements) < window:
+            return gradient
+        for i in range(1, window):
+            t_prev = self.stamp_to_sec(measurements[i-1].header.stamp)
+            t_curr = self.stamp_to_sec(measurements[i].header.stamp)
+            dt = t_curr - t_prev
+
+            d_prev = measurements[i-1].range
+            d_curr = measurements[i].range
+            # print(i, (d_curr - d_prev) / dt)
+            gradient += (d_curr - d_prev) / dt
+        return gradient / window
 
     def step(self):
-        pass
+        # print([x.range for x in self.measurements_filtered['left'].get_all_elements() if x])
+        F_left = self.measurements_filtered['left'].average_pair_gradient()
+        print(F_left)
+        # F_right = self.average_gradient(self.measurements_filtered['right'])
+
+        # # print(f'{F_left:.6f} {F_right:.6f}')
+        # if len(self.measurements_filtered['left']) < 2 or \
+        #     len(self.measurements_filtered['right']) < 2:
+        #     # no dt to get if so
+        #     return
+        # t_prev = self.stamp_to_sec(self.measurements_filtered['left'][-2].header.stamp)
+        # t_curr = self.stamp_to_sec(self.measurements_filtered['left'][-1].header.stamp)
+        # dt = t_curr - t_prev
+
+        # drag = 0# self.linear_velocity_abs() * self.Cd_linear * -np.sign(self.Xd.linear.x)
+        # a = (F_left + F_right + drag) / self.m
+        # self.Xd.linear.x += a * dt
+        # self.X.position.x += self.Xd.linear.x
+        # print(self.X.position.x)
+        # print(self.Xd.linear.x, drag)
+        # alpha = (F_right * self.dy - F_left * self.dy) / self.I# - self.Xd.angular.z
+        
+
+        #   var dt = t_curr - t_prev;
+
+        #   if (dists_prev[0] < dist_max && dists_curr[0] < dist_max &&
+        #       Math.abs(dists_curr[0] - dists_prev[0]) < d_dist_dt_max) {
+        #     F[0] = (dists_curr[0] - dists_prev[0]) / dt;
+        #   } else {
+        #     F[0] = 0;
+        #   }
+
+        #   console.log("");
+        #   console.log("### NEW ###");
+        #   console.log(dists_curr[0], dists_prev[0]);
+        #   dists_prev[0] = dists_curr[0];
+
+        #   // Pre-calc heading vector
+        #   var heading = theta.z;
+        #   var sn = Math.sin(heading);
+        #   var cs = Math.cos(heading);
+
+        #   // linear
+        #   var paddle_force = F[0];
+        #   var drag = vel.scaled(Cd).scaled(-1).scaled(vel.norm());
+        #   var acc = new Vec3(paddle_force * cs, paddle_force * sn, 0).add(drag).scaled(1/mass);
+        #   vel = acc.scaled(dt).plus(vel);
+        #   pos = vel.scaled(dt).plus(pos);
 
 class PrecomputedVehicle(Vehicle):
     def __init__(self, trajectory_params_yaml='/home/ed/Projects/flower_power/flower_power/config.yaml'):
@@ -108,28 +201,3 @@ class PrecomputedVehicle(Vehicle):
 
         self.index = (self.index + 1) % len(self.trajectory)
 
-#   var dt = t_curr - t_prev;
-
-#   if (dists_prev[0] < dist_max && dists_curr[0] < dist_max &&
-#       Math.abs(dists_curr[0] - dists_prev[0]) < d_dist_dt_max) {
-#     F[0] = (dists_curr[0] - dists_prev[0]) / dt;
-#   } else {
-#     F[0] = 0;
-#   }
-
-#   console.log("");
-#   console.log("### NEW ###");
-#   console.log(dists_curr[0], dists_prev[0]);
-#   dists_prev[0] = dists_curr[0];
-
-#   // Pre-calc heading vector
-#   var heading = theta.z;
-#   var sn = Math.sin(heading);
-#   var cs = Math.cos(heading);
-
-#   // linear
-#   var paddle_force = F[0];
-#   var drag = vel.scaled(Cd).scaled(-1).scaled(vel.norm());
-#   var acc = new Vec3(paddle_force * cs, paddle_force * sn, 0).add(drag).scaled(1/mass);
-#   vel = acc.scaled(dt).plus(vel);
-#   pos = vel.scaled(dt).plus(pos);
