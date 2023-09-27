@@ -127,12 +127,12 @@ class OnlineVehicle(Vehicle):
         t_curr = stamp_to_sec(measurements_left[-1].header.stamp)
         dt = t_curr - t_prev
 
-        drag = 0# self.linear_velocity_abs() * self.Cd_linear * -np.sign(self.Xd.linear.x)
+        drag = self.linear_velocity_abs() * self.Cd_linear * -np.sign(self.Xd.linear.x)
         a = (F_left + F_right + drag) / self.m
         self.Xd.linear.x += a * dt
-        print(f'{a:.2f} {self.Xd.linear.x:.2f}')
 
         self.X.position.x += self.Xd.linear.x * dt
+        print(f'{a:.2f} {self.Xd.linear.x:.2f} {self.X.position.x:.2f}')
         # print(self.X.position.x)
         # print(self.Xd.linear.x, drag)
         # alpha = (F_right * self.dy - F_left * self.dy) / self.I# - self.Xd.angular.z
