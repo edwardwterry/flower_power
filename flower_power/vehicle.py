@@ -33,7 +33,7 @@ class RealTimeOutlierFilter:
         return abs(z_score) > self.threshold
 
 class RingBuffer:
-    def __init__(self, size=10):
+    def __init__(self, size=4):
         self.size = size
         self.buffer = [None] * size
         self.idx = 0
@@ -109,42 +109,30 @@ class OnlineVehicle(Vehicle):
             # print('putting right', right)
             self.measurements_filtered['right'].add(right)
 
-
-    
-    def average_gradient(self, measurements, window=10):
-        gradient = 0.0
-        if len(measurements) < window:
-            return gradient
-        for i in range(1, window):
-            t_prev = self.stamp_to_sec(measurements[i-1].header.stamp)
-            t_curr = self.stamp_to_sec(measurements[i].header.stamp)
-            dt = t_curr - t_prev
-
-            d_prev = measurements[i-1].range
-            d_curr = measurements[i].range
-            # print(i, (d_curr - d_prev) / dt)
-            gradient += (d_curr - d_prev) / dt
-        return gradient / window
-
     def step(self):
         # print([x.range for x in self.measurements_filtered['left'].get_all_elements() if x])
         F_left = self.measurements_filtered['left'].average_pair_gradient()
-        print(F_left)
-        # F_right = self.average_gradient(self.measurements_filtered['right'])
+        F_right = self.measurements_filtered['right'].average_pair_gradient()
 
-        # # print(f'{F_left:.6f} {F_right:.6f}')
+        # print(f'{F_left:.6f} {F_right:.6f}')
         # if len(self.measurements_filtered['left']) < 2 or \
         #     len(self.measurements_filtered['right']) < 2:
         #     # no dt to get if so
         #     return
-        # t_prev = self.stamp_to_sec(self.measurements_filtered['left'][-2].header.stamp)
-        # t_curr = self.stamp_to_sec(self.measurements_filtered['left'][-1].header.stamp)
-        # dt = t_curr - t_prev
+        measurements_left = self.measurements_filtered['left'].get_all_elements()
+        if len(measurements_left) < 2: 
+            # not enough to calculate dt
+            return
+        t_prev = stamp_to_sec(measurements_left[-2].header.stamp)
+        t_curr = stamp_to_sec(measurements_left[-1].header.stamp)
+        dt = t_curr - t_prev
 
-        # drag = 0# self.linear_velocity_abs() * self.Cd_linear * -np.sign(self.Xd.linear.x)
-        # a = (F_left + F_right + drag) / self.m
-        # self.Xd.linear.x += a * dt
-        # self.X.position.x += self.Xd.linear.x
+        drag = 0# self.linear_velocity_abs() * self.Cd_linear * -np.sign(self.Xd.linear.x)
+        a = (F_left + F_right + drag) / self.m
+        self.Xd.linear.x += a * dt
+        print(f'{a:.2f} {self.Xd.linear.x:.2f}')
+
+        self.X.position.x += self.Xd.linear.x * dt
         # print(self.X.position.x)
         # print(self.Xd.linear.x, drag)
         # alpha = (F_right * self.dy - F_left * self.dy) / self.I# - self.Xd.angular.z
