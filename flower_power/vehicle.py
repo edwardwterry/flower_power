@@ -141,7 +141,7 @@ class OnlineVehicle(Vehicle):
         self.X.orientation.y = curr_quat[1]
         self.X.orientation.z = curr_quat[2]
         self.X.orientation.w = curr_quat[3]
-        print(f'{curr.as_euler("zxy")[0]}')
+        # print(f'{curr.as_euler("zxy")[0]}')
         # print(f'{D_angular:.2f} {F_left:.2f} {alpha:.2f} {self.Xd.angular.z:.2f} {self.X.position.x:.2f}')
 
         # TODO heading integration

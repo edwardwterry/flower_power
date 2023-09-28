@@ -5,7 +5,7 @@ from sensor_msgs.msg import Range
 from rclpy.qos import qos_profile_sensor_data
 
 from .vehicle import OnlineVehicle, PrecomputedVehicle
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import Pose, PoseStamped
 
 class Simulator(Node):
     def __init__(self, dt=0.05):
@@ -17,14 +17,17 @@ class Simulator(Node):
                                 Subscriber(self, Range, 'range_right', qos_profile=qos_profile_sensor_data)],
                                 10)
         tss.registerCallback(self.sensor_callback)
-        self.pubs = {'target': self.create_publisher(Pose, 'target/pose', 10),
-                     'ego': self.create_publisher(Pose, 'ego/pose', 10)}
+        self.pubs = {'target': self.create_publisher(PoseStamped, 'target/pose', 10),
+                     'ego': self.create_publisher(PoseStamped, 'ego/pose', 10)}
 
     def tick_callback(self):
         self.vehicles['target'].step()
         for name, vehicle in self.vehicles.items():
             pose_msg = vehicle.get_state()
-            self.pubs[name].publish(pose_msg)
+            pose_stamped_msg = PoseStamped()
+            pose_stamped_msg.pose = pose_msg
+            pose_stamped_msg.header.frame_id = name
+            self.pubs[name].publish(pose_stamped_msg)
     
     def sensor_callback(self, left_msg, right_msg):
         self.vehicles['ego'].update(left_msg, right_msg)
