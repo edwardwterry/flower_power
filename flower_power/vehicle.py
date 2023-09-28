@@ -71,10 +71,6 @@ class Vehicle:
         self.X = Pose()
         self.Xd = Accel()
 
-    def step(self):
-        # do physics here
-        pass
-
     def get_state(self):
         return self.X
     
@@ -92,10 +88,10 @@ class OnlineVehicle(Vehicle):
         self.F = {'left': 0.0, 'right': 0.0}
 
         # Physical parameters
-        self.m = 1.0
-        self.I = 1.0
-        self.Cd_linear = 10.0
-        self.Cd_angular = 1.0
+        self.m = 0.2
+        self.I = 0.2
+        self.Cd_linear = 1.
+        self.Cd_angular = 0.2
         self.dy = 0.5
         
     def update(self, left, right):
@@ -111,7 +107,7 @@ class OnlineVehicle(Vehicle):
 
     def step(self):
         F_left = self.measurements_filtered['left'].average_pair_gradient()
-        F_right = -F_left#self.measurements_filtered['right'].average_pair_gradient()
+        F_right = 0.5 * self.measurements_filtered['right'].average_pair_gradient() # HACK
 
         measurements_left = self.measurements_filtered['left'].get_all_elements()
         if len(measurements_left) < 2: 
@@ -121,19 +117,25 @@ class OnlineVehicle(Vehicle):
         t_curr = stamp_to_sec(measurements_left[-1].header.stamp)
         dt = t_curr - t_prev
 
+        prev = R.from_quat([self.X.orientation.x,
+                          self.X.orientation.y,
+                          self.X.orientation.z,
+                          self.X.orientation.w])
+        
+        heading = prev.as_euler('zyx', degrees=False)[0]
+
         D_linear = self.linear_velocity_abs() * self.Cd_linear * -np.sign(self.Xd.linear.x)
         a = (F_left + F_right + D_linear) / self.m
-        self.Xd.linear.x += a * dt
+        self.Xd.linear.x += a * dt * np.cos(heading)
+        self.Xd.linear.y += a * dt * np.sin(heading)
         self.X.position.x += self.Xd.linear.x * dt
+        self.X.position.y += self.Xd.linear.y * dt
         # print(f'{a:.2f} {self.Xd.linear.x:.2f} {self.X.position.x:.2f}')
 
         D_angular = abs(self.Xd.angular.z) * self.Cd_angular * -np.sign(self.Xd.angular.z)
         alpha = (-F_left * self.dy + F_right * self.dy + D_angular) / self.I
         self.Xd.angular.z += alpha * dt
-        prev = R.from_quat([self.X.orientation.x,
-                          self.X.orientation.y,
-                          self.X.orientation.z,
-                          self.X.orientation.w])
+
         delta = R.from_euler('z', self.Xd.angular.z * dt, degrees=False)
         curr = prev * delta
         curr_quat = curr.as_quat()
@@ -143,9 +145,6 @@ class OnlineVehicle(Vehicle):
         self.X.orientation.w = curr_quat[3]
         # print(f'{curr.as_euler("zxy")[0]}')
         # print(f'{D_angular:.2f} {F_left:.2f} {alpha:.2f} {self.Xd.angular.z:.2f} {self.X.position.x:.2f}')
-
-        # TODO heading integration
-
 
 class PrecomputedVehicle(Vehicle):
     def __init__(self, trajectory_params_yaml='/home/ed/Projects/flower_power/flower_power/config.yaml'):

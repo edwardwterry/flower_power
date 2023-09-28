@@ -78,9 +78,6 @@
             let cube = document.querySelector('#' + entity);
             cube.setAttribute('position', { x: position.y, y: position.z, z: position.x }); // TODO reorient?
             cube.setAttribute('rotation', { x: orientation.x, y: orientation.z, z: orientation.y });
-            if (entity == 'ego') {
-                console.log(cube.getAttribute('rotation'))
-            }
         }
 
     </script>

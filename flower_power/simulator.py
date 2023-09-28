@@ -5,7 +5,7 @@ from sensor_msgs.msg import Range
 from rclpy.qos import qos_profile_sensor_data
 
 from .vehicle import OnlineVehicle, PrecomputedVehicle
-from geometry_msgs.msg import Pose, PoseStamped
+from geometry_msgs.msg import PoseStamped
 
 class Simulator(Node):
     def __init__(self, dt=0.05):
