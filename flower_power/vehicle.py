@@ -110,15 +110,9 @@ class OnlineVehicle(Vehicle):
             self.measurements_filtered['right'].add(right)
 
     def step(self):
-        # print([x.range for x in self.measurements_filtered['left'].get_all_elements() if x])
         F_left = self.measurements_filtered['left'].average_pair_gradient()
-        F_right = self.measurements_filtered['right'].average_pair_gradient()
+        F_right = -F_left#self.measurements_filtered['right'].average_pair_gradient()
 
-        # print(f'{F_left:.6f} {F_right:.6f}')
-        # if len(self.measurements_filtered['left']) < 2 or \
-        #     len(self.measurements_filtered['right']) < 2:
-        #     # no dt to get if so
-        #     return
         measurements_left = self.measurements_filtered['left'].get_all_elements()
         if len(measurements_left) < 2: 
             # not enough to calculate dt
@@ -127,42 +121,31 @@ class OnlineVehicle(Vehicle):
         t_curr = stamp_to_sec(measurements_left[-1].header.stamp)
         dt = t_curr - t_prev
 
-        drag = self.linear_velocity_abs() * self.Cd_linear * -np.sign(self.Xd.linear.x)
-        a = (F_left + F_right + drag) / self.m
+        D_linear = self.linear_velocity_abs() * self.Cd_linear * -np.sign(self.Xd.linear.x)
+        a = (F_left + F_right + D_linear) / self.m
         self.Xd.linear.x += a * dt
-
         self.X.position.x += self.Xd.linear.x * dt
-        print(f'{a:.2f} {self.Xd.linear.x:.2f} {self.X.position.x:.2f}')
-        # print(self.X.position.x)
-        # print(self.Xd.linear.x, drag)
-        # alpha = (F_right * self.dy - F_left * self.dy) / self.I# - self.Xd.angular.z
-        
+        # print(f'{a:.2f} {self.Xd.linear.x:.2f} {self.X.position.x:.2f}')
 
-        #   var dt = t_curr - t_prev;
+        D_angular = abs(self.Xd.angular.z) * self.Cd_angular * -np.sign(self.Xd.angular.z)
+        alpha = (-F_left * self.dy + F_right * self.dy + D_angular) / self.I
+        self.Xd.angular.z += alpha * dt
+        prev = R.from_quat([self.X.orientation.x,
+                          self.X.orientation.y,
+                          self.X.orientation.z,
+                          self.X.orientation.w])
+        delta = R.from_euler('z', self.Xd.angular.z * dt, degrees=False)
+        curr = prev * delta
+        curr_quat = curr.as_quat()
+        self.X.orientation.x = curr_quat[0]
+        self.X.orientation.y = curr_quat[1]
+        self.X.orientation.z = curr_quat[2]
+        self.X.orientation.w = curr_quat[3]
+        print(f'{curr.as_euler("zxy")[0]}')
+        # print(f'{D_angular:.2f} {F_left:.2f} {alpha:.2f} {self.Xd.angular.z:.2f} {self.X.position.x:.2f}')
 
-        #   if (dists_prev[0] < dist_max && dists_curr[0] < dist_max &&
-        #       Math.abs(dists_curr[0] - dists_prev[0]) < d_dist_dt_max) {
-        #     F[0] = (dists_curr[0] - dists_prev[0]) / dt;
-        #   } else {
-        #     F[0] = 0;
-        #   }
+        # TODO heading integration
 
-        #   console.log("");
-        #   console.log("### NEW ###");
-        #   console.log(dists_curr[0], dists_prev[0]);
-        #   dists_prev[0] = dists_curr[0];
-
-        #   // Pre-calc heading vector
-        #   var heading = theta.z;
-        #   var sn = Math.sin(heading);
-        #   var cs = Math.cos(heading);
-
-        #   // linear
-        #   var paddle_force = F[0];
-        #   var drag = vel.scaled(Cd).scaled(-1).scaled(vel.norm());
-        #   var acc = new Vec3(paddle_force * cs, paddle_force * sn, 0).add(drag).scaled(1/mass);
-        #   vel = acc.scaled(dt).plus(vel);
-        #   pos = vel.scaled(dt).plus(pos);
 
 class PrecomputedVehicle(Vehicle):
     def __init__(self, trajectory_params_yaml='/home/ed/Projects/flower_power/flower_power/config.yaml'):
