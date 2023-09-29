@@ -30,31 +30,9 @@ class PaddleInsertedDetector:
         last = list(self.queue)[-self.num_timesteps_thr:]
         return all(elm < self.max_thr for elm in last)
 
-class RealTimeOutlierFilter:
-    def __init__(self, window_size=10, threshold=2.0):
-        self.window_size = window_size
-        self.threshold = threshold
-        self.window = []
-
-    def add_data_point(self, data_point):
-        if len(self.window) >= self.window_size:
-            self.window.pop(0)
-        self.window.append(data_point)
-
-    def is_outlier(self, data_point, max=0.2):
-        if len(self.window) < self.window_size:
-            return False  # Not enough data to determine
-
-        avg = sum(self.window) / len(self.window)
-        std_dev = (sum([(dp - avg) ** 2 for dp in self.window]
-                       ) / len(self.window)) ** 0.5
-
-        z_score = (data_point - avg) / std_dev if std_dev != 0 else 0
-        return abs(z_score) > self.threshold
-
 
 class RingBuffer:
-    def __init__(self, size=4):
+    def __init__(self, size=20):
         self.size = size
         self.buffer = [None] * size
         self.idx = 0
@@ -114,11 +92,10 @@ class OnlineVehicle(Vehicle):
                                  'right': PaddleInsertedDetector()}
 
         # Physical parameters
-        self.m = 0.2
-        self.I = 0.2
-        self.Cd_linear = 0.2
-        self.Cd_angular = 0.2
-        self.dy = 0.5
+        self.m = 0.5
+        self.I = 2.0
+        self.Cd_linear = 0.6
+        self.Cd_angular = 1.0
 
         self.latest_dt = 0.0
         self.t_prev = None
@@ -132,7 +109,6 @@ class OnlineVehicle(Vehicle):
         self.inserted['left'] = self.inserted_filters['left'].is_inserted()
         self.inserted['right'] = self.inserted_filters['right'].is_inserted()
 
-        print(self.inserted)
         self.t_prev = self.t_curr
         self.t_curr = stamp_to_sec(left.header.stamp)
         # Timestamps are synchronized by design
@@ -156,7 +132,7 @@ class OnlineVehicle(Vehicle):
             return
 
         F_left = self.measurements_filtered['left'].average_pair_gradient()
-        F_right = self.measurements_filtered['right'].average_pair_gradient()
+        F_right = -F_left#self.measurements_filtered['right'].average_pair_gradient()
 
         prev = R.from_quat([self.X.orientation.x,
                             self.X.orientation.y,
@@ -175,7 +151,7 @@ class OnlineVehicle(Vehicle):
         print(f'{a:.2f} {self.Xd.linear.x:.2f} {self.X.position.x:.2f}')
 
         D_angular = abs(self.Xd.angular.z) * self.Cd_angular * -np.sign(self.Xd.angular.z)
-        alpha = (-F_left * self.dy + F_right * self.dy + D_angular) / self.I
+        alpha = (-F_left + F_right + D_angular) / self.I
         self.Xd.angular.z += alpha * self.dt
 
         delta = R.from_euler('z', self.Xd.angular.z * self.dt, degrees=False)
