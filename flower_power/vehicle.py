@@ -8,29 +8,50 @@ from scipy.spatial.transform import Rotation as R
 
 from collections import deque
 
+
 def stamp_to_sec(stamp):
     return stamp.sec + stamp.nanosec * 1e-9
+
+class PaddleInsertedDetector:
+    def __init__(self, num_timesteps_thr=3, window_size=10, max_thr=0.2):
+        self.window_size = window_size
+        self.num_timesteps_thr = num_timesteps_thr
+        self.queue = deque(maxlen=window_size)
+        self.max_thr = max_thr
+    
+    def add_measurement(self, measurement):
+        if len(self.queue) > self.window_size:
+            self.queue.popleft()
+        self.queue.append(measurement)
+    
+    def is_inserted(self):
+        if len(self.queue) < self.num_timesteps_thr:
+            return False
+        last = list(self.queue)[-self.num_timesteps_thr:]
+        return all(elm < self.max_thr for elm in last)
 
 class RealTimeOutlierFilter:
     def __init__(self, window_size=10, threshold=2.0):
         self.window_size = window_size
         self.threshold = threshold
         self.window = []
-    
+
     def add_data_point(self, data_point):
         if len(self.window) >= self.window_size:
             self.window.pop(0)
         self.window.append(data_point)
-        
-    def is_outlier(self, data_point):
+
+    def is_outlier(self, data_point, max=0.2):
         if len(self.window) < self.window_size:
             return False  # Not enough data to determine
-        
+
         avg = sum(self.window) / len(self.window)
-        std_dev = (sum([(dp - avg) ** 2 for dp in self.window]) / len(self.window)) ** 0.5
-        
+        std_dev = (sum([(dp - avg) ** 2 for dp in self.window]
+                       ) / len(self.window)) ** 0.5
+
         z_score = (data_point - avg) / std_dev if std_dev != 0 else 0
         return abs(z_score) > self.threshold
+
 
 class RingBuffer:
     def __init__(self, size=4):
@@ -50,7 +71,7 @@ class RingBuffer:
             return self.buffer[:self.idx]
         else:
             return self.buffer[self.idx:] + self.buffer[:self.idx]
-    
+
     def average_pair_gradient(self):
         gradient = 0.0
         if not self.full:
@@ -66,6 +87,10 @@ class RingBuffer:
             gradient += (d_curr - d_prev) / dt
         return gradient
 
+    def clear(self):
+        self.__init__()
+
+
 class Vehicle:
     def __init__(self):
         self.X = Pose()
@@ -73,83 +98,102 @@ class Vehicle:
 
     def get_state(self):
         return self.X
-    
+
     def linear_velocity_abs(self):
         return np.linalg.norm(self.Xd.linear.x ** 2 + self.Xd.linear.y ** 2)
+
 
 class OnlineVehicle(Vehicle):
     def __init__(self):
         super().__init__()
-        self.xd = Pose()
-        self.measurements_filtered = {'left': RingBuffer(), 'right': RingBuffer()}
-        self.filter = {'left': RealTimeOutlierFilter(),
-                       'right': RealTimeOutlierFilter()}
+        self.measurements_filtered = {
+            'left': RingBuffer(), 'right': RingBuffer()}
 
-        self.F = {'left': 0.0, 'right': 0.0}
+        self.inserted = {'left': False, 'right': False}
+        self.inserted_filters = {'left': PaddleInsertedDetector(),
+                                 'right': PaddleInsertedDetector()}
 
         # Physical parameters
         self.m = 0.2
         self.I = 0.2
-        self.Cd_linear = 1.
+        self.Cd_linear = 0.2
         self.Cd_angular = 0.2
         self.dy = 0.5
-        
+
+        self.latest_dt = 0.0
+        self.t_prev = None
+        self.t_curr = None
+        self.dt = None
+
     def update(self, left, right):
-        # if either measurement is spurious, ignore it
-        self.filter['left'].add_data_point(left.range)
-        self.filter['right'].add_data_point(right.range)
-        if not self.filter['left'].is_outlier(left.range):
-            # print('putting left', left)
+        self.inserted_filters['left'].add_measurement(left.range)
+        self.inserted_filters['right'].add_measurement(right.range)
+
+        self.inserted['left'] = self.inserted_filters['left'].is_inserted()
+        self.inserted['right'] = self.inserted_filters['right'].is_inserted()
+
+        print(self.inserted)
+        self.t_prev = self.t_curr
+        self.t_curr = stamp_to_sec(left.header.stamp)
+        # Timestamps are synchronized by design
+        if self.t_prev is None:
+            return
+        self.dt = self.t_curr - self.t_prev
+
+        if not self.inserted['left']:
+            self.measurements_filtered['left'].clear()
+        else:
             self.measurements_filtered['left'].add(left)
-        if not self.filter['right'].is_outlier(right.range):
-            # print('putting right', right)
+
+        if not self.inserted['right']:
+            self.measurements_filtered['right'].clear()
+        else:
             self.measurements_filtered['right'].add(right)
 
     def step(self):
-        F_left = self.measurements_filtered['left'].average_pair_gradient()
-        F_right = 0.5 * self.measurements_filtered['right'].average_pair_gradient() # HACK
-
-        measurements_left = self.measurements_filtered['left'].get_all_elements()
-        if len(measurements_left) < 2: 
-            # not enough to calculate dt
+        if self.dt is None:
+            # Haven't yet got 2 measurements
             return
-        t_prev = stamp_to_sec(measurements_left[-2].header.stamp)
-        t_curr = stamp_to_sec(measurements_left[-1].header.stamp)
-        dt = t_curr - t_prev
+
+        F_left = self.measurements_filtered['left'].average_pair_gradient()
+        F_right = self.measurements_filtered['right'].average_pair_gradient()
 
         prev = R.from_quat([self.X.orientation.x,
-                          self.X.orientation.y,
-                          self.X.orientation.z,
-                          self.X.orientation.w])
-        
+                            self.X.orientation.y,
+                            self.X.orientation.z,
+                            self.X.orientation.w])
+
         heading = prev.as_euler('zyx', degrees=False)[0]
 
-        D_linear = self.linear_velocity_abs() * self.Cd_linear * -np.sign(self.Xd.linear.x)
+        D_linear = self.linear_velocity_abs() * self.Cd_linear * - \
+            np.sign(self.Xd.linear.x)
         a = (F_left + F_right + D_linear) / self.m
-        self.Xd.linear.x += a * dt * np.cos(heading)
-        self.Xd.linear.y += a * dt * np.sin(heading)
-        self.X.position.x += self.Xd.linear.x * dt
-        self.X.position.y += self.Xd.linear.y * dt
-        # print(f'{a:.2f} {self.Xd.linear.x:.2f} {self.X.position.x:.2f}')
+        self.Xd.linear.x += a * self.dt * np.cos(heading)
+        self.Xd.linear.y += a * self.dt * np.sin(heading)
+        self.X.position.x += self.Xd.linear.x * self.dt
+        self.X.position.y += self.Xd.linear.y * self.dt
+        print(f'{a:.2f} {self.Xd.linear.x:.2f} {self.X.position.x:.2f}')
 
         D_angular = abs(self.Xd.angular.z) * self.Cd_angular * -np.sign(self.Xd.angular.z)
         alpha = (-F_left * self.dy + F_right * self.dy + D_angular) / self.I
-        self.Xd.angular.z += alpha * dt
+        self.Xd.angular.z += alpha * self.dt
 
-        delta = R.from_euler('z', self.Xd.angular.z * dt, degrees=False)
+        delta = R.from_euler('z', self.Xd.angular.z * self.dt, degrees=False)
         curr = prev * delta
         curr_quat = curr.as_quat()
         self.X.orientation.x = curr_quat[0]
         self.X.orientation.y = curr_quat[1]
         self.X.orientation.z = curr_quat[2]
         self.X.orientation.w = curr_quat[3]
-        # print(f'{curr.as_euler("zxy")[0]}')
-        # print(f'{D_angular:.2f} {F_left:.2f} {alpha:.2f} {self.Xd.angular.z:.2f} {self.X.position.x:.2f}')
+        print(f'{curr.as_euler("zxy")[0]}')
+        print(f'{D_angular:.2f} {F_left:.2f} {alpha:.2f} {self.Xd.angular.z:.2f} {self.X.position.x:.2f}')
+
 
 class PrecomputedVehicle(Vehicle):
     def __init__(self, trajectory_params_yaml='/home/ed/Projects/flower_power/flower_power/config.yaml'):
         super().__init__()
-        self.trajectory = PrecomputedTrajectory(trajectory_params_yaml).get_trajectory_points(periodic=True)[:-1]
+        self.trajectory = PrecomputedTrajectory(
+            trajectory_params_yaml).get_trajectory_points(periodic=True)[:-1]
         self.index = 0
         self.first = True
 
@@ -170,4 +214,3 @@ class PrecomputedVehicle(Vehicle):
         self.X.orientation.w = q[3]
 
         self.index = (self.index + 1) % len(self.trajectory)
-

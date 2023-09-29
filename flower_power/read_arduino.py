@@ -35,8 +35,11 @@ class SensorReader(Node):
                 left_distance = int(left_pulse_time) * 1e-6 * self.speed_sound / 2.0
                 right_distance = int(right_pulse_time) * 1e-6 * self.speed_sound / 2.0
 
-                secs = int(stamp_ms) // 1000
-                nanosecs = int(stamp_ms) % 1000 * 1000000
+                try:
+                    secs = int(stamp_ms) // 1000
+                    nanosecs = int(stamp_ms) % 1000 * 1000000
+                except:
+                    continue
 
                 left_range_msg = Range()
                 left_range_msg.header.frame_id = 'left'
