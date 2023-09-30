@@ -14,7 +14,6 @@
         <a-entity id="ego">
             <a-camera id="camera"></a-camera>
         </a-entity>
-        <!-- <a-camera id="ego" position="0 0 0" rotation="0 0 0" look-controls></a-camera> -->
         <a-sky color="#e2a31b"></a-sky>
 
         <a-assets>
@@ -27,8 +26,10 @@
 
         <!-- Entities -->
         <a-entity id="target" gltf-model="#myModel" position="0 0 0" rotation="0 0 0" scale="1 1 1"></a-entity>
-        <a-entity id="flower" gltf-model="#petals" position="0 1.5 0" rotation="90 0 0" scale="1 1 1"
-        colorize="color: red"></a-entity>
+        <a-entity position="0 1.5 0" rotation="90 0 0">
+            <a-entity id="flower" gltf-model="#petals" colorize="color: green"></a-entity>
+            <a-cylinder color="blue" height="0.03" radius="0.2"></a-cylinder>
+        </a-entity>
 
     </a-scene>
 
