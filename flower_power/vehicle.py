@@ -130,9 +130,15 @@ class OnlineVehicle(Vehicle):
         if self.dt is None:
             # Haven't yet got 2 measurements
             return
-
+        print()
         F_left = self.measurements_filtered['left'].average_pair_gradient()
-        F_right = -F_left#self.measurements_filtered['right'].average_pair_gradient()
+        F_right = np.random.rand() * self.measurements_filtered['right'].average_pair_gradient()
+        if abs(F_left) < 0.1:
+            F_left = 0.0
+        if abs(F_right) < 0.1:
+            F_right = 0.0
+        print(f'F left: {F_left:.2f}')
+        print(f'F right: {F_right:.2f}')
 
         prev = R.from_quat([self.X.orientation.x,
                             self.X.orientation.y,
@@ -148,7 +154,13 @@ class OnlineVehicle(Vehicle):
         self.Xd.linear.y += a * self.dt * np.sin(heading)
         self.X.position.x += self.Xd.linear.x * self.dt
         self.X.position.y += self.Xd.linear.y * self.dt
-        print(f'{a:.2f} {self.Xd.linear.x:.2f} {self.X.position.x:.2f}')
+        print(f'D linear: {D_linear:.2f}')
+        print(f'accel: {a:.2f}')
+        print(f'vel lin x: {self.Xd.linear.x:.2f}')
+        print(f'vel lin y: {self.Xd.linear.y:.2f}')
+        print(f'pos x: {self.X.position.x:.2f}')
+        print(f'pos y: {self.X.position.y:.2f}')
+        print(f'heading: {heading:.2f}')
 
         D_angular = abs(self.Xd.angular.z) * self.Cd_angular * -np.sign(self.Xd.angular.z)
         alpha = (-F_left + F_right + D_angular) / self.I
@@ -161,8 +173,9 @@ class OnlineVehicle(Vehicle):
         self.X.orientation.y = curr_quat[1]
         self.X.orientation.z = curr_quat[2]
         self.X.orientation.w = curr_quat[3]
-        print(f'{curr.as_euler("zxy")[0]}')
-        print(f'{D_angular:.2f} {F_left:.2f} {alpha:.2f} {self.Xd.angular.z:.2f} {self.X.position.x:.2f}')
+        print(f'D angular: {D_angular:.2f}')
+        print(f'vel rot z: {self.Xd.angular.z:.2f}')
+        print(f'alpha: {alpha:.2f}')
 
 
 class PrecomputedVehicle(Vehicle):
