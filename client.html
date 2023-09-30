@@ -13,17 +13,22 @@
         <a-ocean color="#00aabb" width="500" depth="500" density="100"></a-ocean>
         <a-entity id="ego">
             <a-camera id="camera"></a-camera>
-          </a-entity>
+        </a-entity>
         <!-- <a-camera id="ego" position="0 0 0" rotation="0 0 0" look-controls></a-camera> -->
         <a-sky color="#e2a31b"></a-sky>
 
         <a-assets>
             <a-asset-item id="myModel"
                 src="https://edwardwterry.github.io/flower_power/assets/scene.gltf"></a-asset-item>
+
+            <a-asset-item id="petals"
+                src="https://edwardwterry.github.io/flower_power/assets/petals.gltf"></a-asset-item>
         </a-assets>
 
         <!-- Entities -->
         <a-entity id="target" gltf-model="#myModel" position="0 0 0" rotation="0 0 0" scale="1 1 1"></a-entity>
+        <a-entity id="flower" gltf-model="#petals" position="0 1.5 0" rotation="90 0 0" scale="1 1 1"
+        colorize="color: red"></a-entity>
 
     </a-scene>
 
@@ -79,6 +84,33 @@
             cube.setAttribute('position', { x: position.y, y: position.z, z: position.x }); // TODO reorient?
             cube.setAttribute('rotation', { x: orientation.x, y: orientation.z, z: orientation.y });
         }
+
+        AFRAME.registerComponent('colorize', {
+            schema: {
+                color: { type: 'color', default: '#ffc0cb' }, // Default: red
+                emissive: {type: 'color', default: '#FF0000'} // Default: red
+            },
+            init: function () {
+                var model = this.el.getObject3D('mesh'); // Get the model from entity
+                if (model) {
+                    this.colorizeModel(model, this.data.color, this.data.emissive); // If model is already loaded, colorize it immediately.
+                } else {
+                    this.el.addEventListener('model-loaded', () => { // Wait for the model to load
+                        var model = this.el.getObject3D('mesh');
+                        this.colorizeModel(model, this.data.color, this.data.emissive); // Colorize once the model is loaded
+                    });
+                }
+            },
+            colorizeModel: function (model, color) {
+                model.traverse((o) => {
+                    if (o.isMesh) {
+                        o.material.color.set(color);
+                        o.material.emissive.set(color);
+                        o.material.needsUpdate = true;
+                    }
+                });
+            }
+        });
 
     </script>
 </body>
