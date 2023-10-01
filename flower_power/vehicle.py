@@ -2,7 +2,7 @@ import numpy as np
 import math
 from .trajectory import PrecomputedTrajectory
 from queue import Queue
-from geometry_msgs.msg import Pose, Accel
+from geometry_msgs.msg import Pose, Accel, Twist
 from sensor_msgs.msg import Range
 from scipy.spatial.transform import Rotation as R
 
@@ -72,7 +72,7 @@ class RingBuffer:
 class Vehicle:
     def __init__(self):
         self.X = Pose()
-        self.Xd = Accel()
+        self.Xd = Twist()
 
     def get_state(self):
         return self.X
@@ -92,9 +92,9 @@ class OnlineVehicle(Vehicle):
                                  'right': PaddleInsertedDetector()}
 
         # Physical parameters
-        self.m = 0.5
+        self.m = 5.0
         self.I = 2.0
-        self.Cd_linear = 0.6
+        self.Cd_linear = 2.0
         self.Cd_angular = 1.0
 
         self.latest_dt = 0.0
@@ -132,7 +132,7 @@ class OnlineVehicle(Vehicle):
             return
         print()
         F_left = self.measurements_filtered['left'].average_pair_gradient()
-        F_right = np.random.rand() * self.measurements_filtered['right'].average_pair_gradient()
+        F_right = self.measurements_filtered['right'].average_pair_gradient()
         if abs(F_left) < 0.1:
             F_left = 0.0
         if abs(F_right) < 0.1:
@@ -147,15 +147,31 @@ class OnlineVehicle(Vehicle):
 
         heading = prev.as_euler('zyx', degrees=False)[0]
 
-        D_linear = self.linear_velocity_abs() * self.Cd_linear * - \
-            np.sign(self.Xd.linear.x)
-        a = (F_left + F_right + D_linear) / self.m
-        self.Xd.linear.x += a * self.dt * np.cos(heading)
-        self.Xd.linear.y += a * self.dt * np.sin(heading)
+        rot_matrix = np.array([[np.cos(heading), np.sin(heading)],
+                               [-np.sin(heading), np.cos(heading)]])
+
+        vel_body = np.array([self.Xd.linear.x, self.Xd.linear.y]) @ np.linalg.inv(rot_matrix)
+        print('vel body', vel_body)
+        D_linear_body = np.array([self.linear_velocity_abs() * self.Cd_linear * -np.sign(vel_body[0]), 0.0])
+        F_linear_body = np.array([F_left + F_right, 0.0])
+        D_linear_world = D_linear_body @ rot_matrix
+        F_linear_world = F_linear_body @ rot_matrix
+        a_linear_world = (F_linear_world + D_linear_world) / self.m
+        print('D linear body', D_linear_body)
+        print('F linear body', F_linear_body)
+        print('D linear world', D_linear_world)
+        print('F linear world', F_linear_world)
+        print('a linear world', a_linear_world)
+        self.Xd.linear.x += a_linear_world[0] * self.dt
+        self.Xd.linear.y += a_linear_world[1] * self.dt
         self.X.position.x += self.Xd.linear.x * self.dt
         self.X.position.y += self.Xd.linear.y * self.dt
-        print(f'D linear: {D_linear:.2f}')
-        print(f'accel: {a:.2f}')
+        # print(f'D linear x: {D_linear.linear.x:.2f}')
+        # print(f'D linear y: {D_linear.linear.y:.2f}')
+        # print(f'accel x: {a.linear.x:.2f}')
+        # print(f'accel y: {a.linear.y:.2f}')
+        # print(f'a * self.dt * np.cos(heading): {a.linear.x * self.dt:.2f}')
+        # print(f'a * self.dt * np.sin(heading): {a.linear.y * self.dt:.2f}')
         print(f'vel lin x: {self.Xd.linear.x:.2f}')
         print(f'vel lin y: {self.Xd.linear.y:.2f}')
         print(f'pos x: {self.X.position.x:.2f}')

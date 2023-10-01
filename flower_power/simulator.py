@@ -8,7 +8,7 @@ from .vehicle import OnlineVehicle, PrecomputedVehicle
 from geometry_msgs.msg import PoseStamped
 
 class Simulator(Node):
-    def __init__(self, dt=0.05):
+    def __init__(self, dt=0.2):
         super().__init__('simulator')
         self.vehicles = {'target': PrecomputedVehicle(),
                          'ego': OnlineVehicle()}

@@ -28,13 +28,13 @@ class SensorReader(Node):
                     data = self.serial_port.readline().decode('utf-8').strip()
                 except:
                     continue
+                print(data)
                 try:
                     stamp_ms, left_pulse_time, right_pulse_time = data.split(',')
                 except:
                     continue
                 left_distance = int(left_pulse_time) * 1e-6 * self.speed_sound / 2.0
                 right_distance = int(right_pulse_time) * 1e-6 * self.speed_sound / 2.0
-
                 try:
                     secs = int(stamp_ms) // 1000
                     nanosecs = int(stamp_ms) % 1000 * 1000000
