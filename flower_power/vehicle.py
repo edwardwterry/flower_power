@@ -94,7 +94,8 @@ class OnlineVehicle(Vehicle):
         # Physical parameters
         self.m = 5.0
         self.I = 2.0
-        self.Cd_linear = 2.0
+        self.Cd_linear_long = 1.0
+        self.Cd_linear_lat = 2.0
         self.Cd_angular = 1.0
 
         self.latest_dt = 0.0
@@ -152,7 +153,9 @@ class OnlineVehicle(Vehicle):
 
         vel_body = np.array([self.Xd.linear.x, self.Xd.linear.y]) @ np.linalg.inv(rot_matrix)
         print('vel body', vel_body)
-        D_linear_body = np.array([self.linear_velocity_abs() * self.Cd_linear * -np.sign(vel_body[0]), 0.0])
+        # D_linear_body = np.array([self.linear_velocity_abs() * self.Cd_linear * -np.sign(vel_body[0]), 0.0])
+        D_linear_body = -vel_body * np.array([self.Cd_linear_long, self.Cd_linear_lat])
+        # D_linear_body = np.array([self.linear_velocity_abs() * self.Cd_linear * -np.sign(vel_body[0]), 0.0])
         F_linear_body = np.array([F_left + F_right, 0.0])
         D_linear_world = D_linear_body @ rot_matrix
         F_linear_world = F_linear_body @ rot_matrix
