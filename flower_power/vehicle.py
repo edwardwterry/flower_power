@@ -13,7 +13,7 @@ def stamp_to_sec(stamp):
     return stamp.sec + stamp.nanosec * 1e-9
 
 class PaddleInsertedDetector:
-    def __init__(self, num_timesteps_thr=3, window_size=10, max_thr=0.2):
+    def __init__(self, num_timesteps_thr=3, window_size=10, max_thr=2.0):
         self.window_size = window_size
         self.num_timesteps_thr = num_timesteps_thr
         self.queue = deque(maxlen=window_size)
@@ -91,12 +91,14 @@ class OnlineVehicle(Vehicle):
         self.inserted_filters = {'left': PaddleInsertedDetector(),
                                  'right': PaddleInsertedDetector()}
 
+        self.paddle_forces = {'left': 0.0, 'right': 0.0}
+
         # Physical parameters
-        self.m = 5.0
-        self.I = 2.0
-        self.Cd_linear_long = 1.0
-        self.Cd_linear_lat = 2.0
-        self.Cd_angular = 1.0
+        self.m = 100.0
+        self.I = 100.0
+        self.Cd_linear_long = 10.0
+        self.Cd_linear_lat = 100.0
+        self.Cd_angular = 10.0
 
         self.latest_dt = 0.0
         self.t_prev = None
@@ -134,10 +136,13 @@ class OnlineVehicle(Vehicle):
         print()
         F_left = self.measurements_filtered['left'].average_pair_gradient()
         F_right = self.measurements_filtered['right'].average_pair_gradient()
+ 
         if abs(F_left) < 0.1:
             F_left = 0.0
         if abs(F_right) < 0.1:
             F_right = 0.0
+        self.paddle_forces['left'] = F_left
+        self.paddle_forces['right'] = F_right
         print(f'F left: {F_left:.2f}')
         print(f'F right: {F_right:.2f}')
 
@@ -195,6 +200,9 @@ class OnlineVehicle(Vehicle):
         print(f'D angular: {D_angular:.2f}')
         print(f'vel rot z: {self.Xd.angular.z:.2f}')
         print(f'alpha: {alpha:.2f}')
+
+    def get_paddle_forces(self):
+        return self.paddle_forces
 
 
 class PrecomputedVehicle(Vehicle):

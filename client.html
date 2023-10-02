@@ -4,11 +4,18 @@
 <head>
     <meta charset="UTF-8">
     <title>ROS2 A-Frame Example</title>
+    <link rel="stylesheet" href="styles.css">
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
 </head>
 
 <body>
+    <div id="forceLeftContainer">
+        <div id="forceLeft"></div>
+    </div>
+    <div id="forceRightContainer">
+        <div id="forceRight"></div>
+    </div>
     <a-scene>
         <a-ocean color="#00aabb" width="500" depth="500" density="100"></a-ocean>
         <a-entity id="ego">
@@ -54,28 +61,52 @@
                     type: 'geometry_msgs/msg/PoseStamped'
                 };
                 socket.send(JSON.stringify(subscribe_msg));
+
+                subscribe_msg = {
+                    op: 'subscribe',
+                    topic: '/force_left',
+                    type: 'std_msgs/msg/Float32'
+                };
+                socket.send(JSON.stringify(subscribe_msg));
+
+                subscribe_msg = {
+                    op: 'subscribe',
+                    topic: '/force_right',
+                    type: 'std_msgs/msg/Float32'
+                };
+                socket.send(JSON.stringify(subscribe_msg));
             });
 
             socket.addEventListener('message', function (event) {
                 let msg = JSON.parse(event.data);
-                let position = msg.msg.pose.position;
-                let quaternion = msg.msg.pose.orientation;
+                console.log(msg.topic);
+                if (msg.topic == '/force_left') {
+                    setForceLeft(msg.msg.data);
+                }
+                else if (msg.topic == '/force_right') {
+                    setForceRight(msg.msg.data);
+                }
+                else {
+                    let position = msg.msg.pose.position;
+                    let quaternion = msg.msg.pose.orientation;
 
-                let object3D = new THREE.Object3D(); // Three.js object
-                object3D.quaternion.set(quaternion.x, quaternion.y, quaternion.z, quaternion.w);
+                    let object3D = new THREE.Object3D(); // Three.js object
+                    object3D.quaternion.set(quaternion.x, quaternion.y, quaternion.z, quaternion.w);
 
-                // Convert quaternion to Euler angles
-                let euler = new THREE.Euler();
-                euler.setFromQuaternion(object3D.quaternion, 'YXZ');
+                    // Convert quaternion to Euler angles
+                    let euler = new THREE.Euler();
+                    euler.setFromQuaternion(object3D.quaternion, 'YXZ');
 
-                // Convert radians to degrees
-                let rotation = {
-                    x: THREE.MathUtils.radToDeg(euler.x),
-                    y: THREE.MathUtils.radToDeg(euler.y),
-                    z: THREE.MathUtils.radToDeg(euler.z)
-                };
+                    // Convert radians to degrees
+                    let rotation = {
+                        x: THREE.MathUtils.radToDeg(euler.x),
+                        y: THREE.MathUtils.radToDeg(euler.y),
+                        z: THREE.MathUtils.radToDeg(euler.z)
+                    };
 
-                updateCubePose(position, rotation, msg.msg.header.frame_id);
+                    updateCubePose(position, rotation, msg.msg.header.frame_id);
+                }
+
             });
 
         });
@@ -89,7 +120,7 @@
         AFRAME.registerComponent('colorize', {
             schema: {
                 color: { type: 'color', default: '#ffc0cb' }, // Default: red
-                emissive: {type: 'color', default: '#FF0000'} // Default: red
+                emissive: { type: 'color', default: '#FF0000' } // Default: red
             },
             init: function () {
                 var model = this.el.getObject3D('mesh'); // Get the model from entity
@@ -112,6 +143,23 @@
                 });
             }
         });
+
+        let forceLeftBar = document.getElementById('forceLeft');
+        let forceRightBar = document.getElementById('forceRight');
+
+        function setForceLeft(force_left) {
+            let clampedForce = Math.max(-5, Math.min(5, force_left));
+            let percentageHeight = ((clampedForce + 5) / 10) * 100;
+            forceLeftBar.style.height = `${percentageHeight}%`;
+            console.log(percentageHeight);
+        }
+
+        function setForceRight(force_right) {
+            let clampedForce = Math.max(-5, Math.min(5, force_right));
+            let percentageHeight = ((clampedForce + 5) / 10) * 100;
+            forceRightBar.style.height = `${percentageHeight}%`;
+        }
+
 
     </script>
 </body>

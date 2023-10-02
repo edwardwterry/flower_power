@@ -1,0 +1,22 @@
+#forceLeftContainer, #forceRightContainer {
+    position: fixed;
+    top: 10vh;
+    width: 5vw;
+    height: 80vh;
+    background-color: #CCC;
+    border: 1px solid #000;
+}
+
+#forceLeftContainer {
+    left: 10vw;
+}
+
+#forceRightContainer {
+    right: 10vw;
+}
+
+#forceLeft, #forceRight {
+    width: 100%;
+    height: 50%;
+    background-color: #F00;
+}
