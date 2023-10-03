@@ -1,25 +1,29 @@
+'
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <title>ROS2 A-Frame Example</title>
-    <link rel="stylesheet" href="styles.css">
+    <!-- <link rel="stylesheet" href="styles.css"> -->
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
 </head>
 
 <body>
-    <div id="forceLeftContainer">
-        <div id="forceLeft"></div>
-    </div>
-    <div id="forceRightContainer">
-        <div id="forceRight"></div>
-    </div>
     <a-scene>
         <a-ocean color="#00aabb" width="500" depth="500" density="100"></a-ocean>
         <a-entity id="ego">
-            <a-camera id="camera"></a-camera>
+            <a-camera id="camera">
+                <a-box id="forceLeftPos" position="-0.75 0.2 -0.5" depth="0.05" height=".1" width="0.05"
+                    color="red"></a-box>
+                <a-box id="forceLeftNeg" position="-0.75 -0.2 -0.5" depth="0.05" height=".1" width="0.05"
+                    color="red"></a-box>
+                <a-box id="forceRightPos" position="0.75 0.2 -0.5" depth="0.05" height=".1" width="0.05"
+                    color="green"></a-box>
+                <a-box id="forceRightNeg" position="0.75 -0.2 -0.5" depth="0.05" height=".1" width="0.05"
+                    color="green"></a-box>
+            </a-camera>
         </a-entity>
         <a-sky color="#e2a31b"></a-sky>
 
@@ -79,12 +83,11 @@
 
             socket.addEventListener('message', function (event) {
                 let msg = JSON.parse(event.data);
-                console.log(msg.topic);
                 if (msg.topic == '/force_left') {
                     setForceLeft(msg.msg.data);
                 }
                 else if (msg.topic == '/force_right') {
-                    setForceRight(msg.msg.data);
+                    // setForceRight(msg.msg.data);
                 }
                 else {
                     let position = msg.msg.pose.position;
@@ -104,7 +107,7 @@
                         z: THREE.MathUtils.radToDeg(euler.z)
                     };
 
-                    updateCubePose(position, rotation, msg.msg.header.frame_id);
+                    // updateCubePose(position, rotation, msg.msg.header.frame_id);
                 }
 
             });
@@ -144,24 +147,38 @@
             }
         });
 
-        let forceLeftBar = document.getElementById('forceLeft');
-        let forceRightBar = document.getElementById('forceRight');
-
         function setForceLeft(force_left) {
-            let clampedForce = Math.max(-5, Math.min(5, force_left));
-            let percentageHeight = ((clampedForce + 5) / 10) * 100;
-            forceLeftBar.style.height = `${percentageHeight}%`;
-            console.log(percentageHeight);
+            let clampedForce = Math.max(-500, Math.min(500, force_left));
+            let normalizedHeight = clampedForce / 1000 * 0.4;
+            let centroid = normalizedHeight / 2;
+            // console.log(force_left, clampedForce, normalizedHeight, centroid);
+            let forceLeftPosBar = document.querySelector('#forceLeftPos');
+            let forceLeftNegBar = document.querySelector('#forceLeftNeg');
+            console.log(forceLeftPosBar);
+            if (centroid >= 0.0) {
+                forceLeftPosBar.setAttribute('geometry', { height: normalizedHeight });
+                forceLeftPosBar.setAttribute('position',
+                    {
+                        x: forceLeftPosBar.getAttribute('position').x,
+                        y: centroid,
+                        z: forceLeftPosBar.getAttribute('position').z
+                    });
+                forceLeftNegBar.setAttribute('geometry', { height: 0 });
+                forceLeftNegBar.setAttribute('position', {
+                    x: forceLeftNegBar.getAttribute('position').x, y: 0, z: forceLeftNegBar.getAttribute('position').z
+                });
+            }
         }
 
         function setForceRight(force_right) {
+            let forceRightBar = document.getElementById('forceRight');
             let clampedForce = Math.max(-5, Math.min(5, force_right));
-            let percentageHeight = ((clampedForce + 5) / 10) * 100;
-            forceRightBar.style.height = `${percentageHeight}%`;
+            let normalizedHeight = ((clampedForce + 5) / 10);
+            forceRightBar.setAttribute('geometry', { height: normalizedHeight });
         }
 
 
     </script>
 </body>
 
-</html>
+</html>'

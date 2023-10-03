@@ -5,6 +5,7 @@ from queue import Queue
 from geometry_msgs.msg import Pose, Accel, Twist
 from sensor_msgs.msg import Range
 from scipy.spatial.transform import Rotation as R
+from scipy.stats import zscore
 
 from collections import deque
 
@@ -13,11 +14,12 @@ def stamp_to_sec(stamp):
     return stamp.sec + stamp.nanosec * 1e-9
 
 class PaddleInsertedDetector:
-    def __init__(self, num_timesteps_thr=3, window_size=10, max_thr=2.0):
+    def __init__(self, num_timesteps_thr=3, window_size=10, max_thr=1.0, far_out_thr=5.0):
         self.window_size = window_size
         self.num_timesteps_thr = num_timesteps_thr
         self.queue = deque(maxlen=window_size)
         self.max_thr = max_thr
+        self.far_out_thr = far_out_thr
     
     def add_measurement(self, measurement):
         if len(self.queue) > self.window_size:
@@ -28,11 +30,25 @@ class PaddleInsertedDetector:
         if len(self.queue) < self.num_timesteps_thr:
             return False
         last = list(self.queue)[-self.num_timesteps_thr:]
-        return all(elm < self.max_thr for elm in last)
+        # last = [x for x in last if x < self.far_out_thr]
+        print(last)
+        return all(elm < self.max_thr for elm in last)# and len(last) > 0
 
+class OutlierDetector:
+    def __init__(self, thr=2.0, window_size=10):
+        self.thr = thr
+        self.window_size = window_size
+        self.queue = deque(maxlen=window_size)
+
+    def add_measurement(self, measurement):
+        if len(self.queue) > self.window_size:
+            self.queue.popleft()
+        self.queue.append(measurement)
+        zscores = np.abs(zscore(list(self.queue)))
+        return all(zscores < self.thr)
 
 class RingBuffer:
-    def __init__(self, size=20):
+    def __init__(self, size=25):
         self.size = size
         self.buffer = [None] * size
         self.idx = 0
@@ -55,6 +71,7 @@ class RingBuffer:
         if not self.full:
             return gradient
         elms = self.get_all_elements()
+        # print(elms)
         for i in range(1, len(elms)):
             t_prev = stamp_to_sec(elms[i-1].header.stamp)
             t_curr = stamp_to_sec(elms[i].header.stamp)
@@ -77,9 +94,6 @@ class Vehicle:
     def get_state(self):
         return self.X
 
-    def linear_velocity_abs(self):
-        return np.linalg.norm(self.Xd.linear.x ** 2 + self.Xd.linear.y ** 2)
-
 
 class OnlineVehicle(Vehicle):
     def __init__(self):
@@ -90,6 +104,9 @@ class OnlineVehicle(Vehicle):
         self.inserted = {'left': False, 'right': False}
         self.inserted_filters = {'left': PaddleInsertedDetector(),
                                  'right': PaddleInsertedDetector()}
+
+        self.outlier_detectors = {'left': OutlierDetector(),
+                                  'right': OutlierDetector()}
 
         self.paddle_forces = {'left': 0.0, 'right': 0.0}
 
@@ -106,12 +123,21 @@ class OnlineVehicle(Vehicle):
         self.dt = None
 
     def update(self, left, right):
-        self.inserted_filters['left'].add_measurement(left.range)
-        self.inserted_filters['right'].add_measurement(right.range)
+        is_outlier = {'left': False, 'right': False}
+        if not self.outlier_detectors['left'].add_measurement(left.range):
+            is_outlier['left'] = True
+        if not self.outlier_detectors['right'].add_measurement(right.range):
+            is_outlier['right'] = True
+        
+        if not is_outlier['left']:
+            self.inserted_filters['left'].add_measurement(left.range)
+        if not is_outlier['right']:
+            self.inserted_filters['right'].add_measurement(right.range)
 
         self.inserted['left'] = self.inserted_filters['left'].is_inserted()
         self.inserted['right'] = self.inserted_filters['right'].is_inserted()
-
+        print('inserted left', self.inserted['left'])
+        print('inserted right', self.inserted['right'])
         self.t_prev = self.t_curr
         self.t_curr = stamp_to_sec(left.header.stamp)
         # Timestamps are synchronized by design
@@ -122,12 +148,14 @@ class OnlineVehicle(Vehicle):
         if not self.inserted['left']:
             self.measurements_filtered['left'].clear()
         else:
-            self.measurements_filtered['left'].add(left)
+            if not is_outlier['left']:
+                self.measurements_filtered['left'].add(left)
 
         if not self.inserted['right']:
             self.measurements_filtered['right'].clear()
         else:
-            self.measurements_filtered['right'].add(right)
+            if not is_outlier['right']:
+                self.measurements_filtered['right'].add(right)
 
     def step(self):
         if self.dt is None:
@@ -158,9 +186,7 @@ class OnlineVehicle(Vehicle):
 
         vel_body = np.array([self.Xd.linear.x, self.Xd.linear.y]) @ np.linalg.inv(rot_matrix)
         print('vel body', vel_body)
-        # D_linear_body = np.array([self.linear_velocity_abs() * self.Cd_linear * -np.sign(vel_body[0]), 0.0])
         D_linear_body = -vel_body * np.array([self.Cd_linear_long, self.Cd_linear_lat])
-        # D_linear_body = np.array([self.linear_velocity_abs() * self.Cd_linear * -np.sign(vel_body[0]), 0.0])
         F_linear_body = np.array([F_left + F_right, 0.0])
         D_linear_world = D_linear_body @ rot_matrix
         F_linear_world = F_linear_body @ rot_matrix
