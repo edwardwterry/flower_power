@@ -87,7 +87,7 @@
                     setForceLeft(msg.msg.data);
                 }
                 else if (msg.topic == '/force_right') {
-                    // setForceRight(msg.msg.data);
+                    setForceRight(msg.msg.data);
                 }
                 else {
                     let position = msg.msg.pose.position;
@@ -148,8 +148,8 @@
         });
 
         function setForceLeft(force_left) {
-            let clampedForce = Math.max(-500, Math.min(500, force_left));
-            let normalizedHeight = clampedForce / 1000 * 0.4;
+            let clampedForce = Math.max(-10, Math.min(10, force_left));
+            let normalizedHeight = clampedForce / 40 * 0.4;
             let centroid = normalizedHeight / 2;
             // console.log(force_left, clampedForce, normalizedHeight, centroid);
             let forceLeftPosBar = document.querySelector('#forceLeftPos');
@@ -167,14 +167,53 @@
                 forceLeftNegBar.setAttribute('position', {
                     x: forceLeftNegBar.getAttribute('position').x, y: 0, z: forceLeftNegBar.getAttribute('position').z
                 });
+            } else {
+                forceLeftNegBar.setAttribute('geometry', { height: normalizedHeight });
+                forceLeftNegBar.setAttribute('position',
+                    {
+                        x: forceLeftNegBar.getAttribute('position').x,
+                        y: centroid,
+                        z: forceLeftNegBar.getAttribute('position').z
+                    });
+                    forceLeftPosBar.setAttribute('geometry', { height: 0 });
+                    forceLeftPosBar.setAttribute('position', {
+                    x: forceLeftPosBar.getAttribute('position').x, y: 0, z: forceLeftPosBar.getAttribute('position').z
+                });                
             }
         }
 
         function setForceRight(force_right) {
-            let forceRightBar = document.getElementById('forceRight');
-            let clampedForce = Math.max(-5, Math.min(5, force_right));
-            let normalizedHeight = ((clampedForce + 5) / 10);
-            forceRightBar.setAttribute('geometry', { height: normalizedHeight });
+            let clampedForce = Math.max(-10, Math.min(10, force_right));
+            let normalizedHeight = clampedForce / 40 * 0.4;
+            let centroid = normalizedHeight / 2;
+            let forceRightPosBar = document.querySelector('#forceRightPos');
+            let forceRightNegBar = document.querySelector('#forceRightNeg');
+            console.log(forceRightPosBar);
+            if (centroid >= 0.0) {
+                forceRightPosBar.setAttribute('geometry', { height: normalizedHeight });
+                forceRightPosBar.setAttribute('position',
+                    {
+                        x: forceRightPosBar.getAttribute('position').x,
+                        y: centroid,
+                        z: forceRightPosBar.getAttribute('position').z
+                    });
+                forceRightNegBar.setAttribute('geometry', { height: 0 });
+                forceRightNegBar.setAttribute('position', {
+                    x: forceRightNegBar.getAttribute('position').x, y: 0, z: forceRightNegBar.getAttribute('position').z
+                });
+            } else {
+                forceRightNegBar.setAttribute('geometry', { height: normalizedHeight });
+                forceRightNegBar.setAttribute('position',
+                    {
+                        x: forceRightNegBar.getAttribute('position').x,
+                        y: centroid,
+                        z: forceRightNegBar.getAttribute('position').z
+                    });
+                    forceRightPosBar.setAttribute('geometry', { height: 0 });
+                    forceRightPosBar.setAttribute('position', {
+                    x: forceRightPosBar.getAttribute('position').x, y: 0, z: forceRightPosBar.getAttribute('position').z
+                });                
+            }
         }
 
 
