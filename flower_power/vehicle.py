@@ -14,12 +14,11 @@ def stamp_to_sec(stamp):
     return stamp.sec + stamp.nanosec * 1e-9
 
 class PaddleInsertedDetector:
-    def __init__(self, num_timesteps_thr=3, window_size=10, max_thr=1.0, far_out_thr=5.0):
+    def __init__(self, num_timesteps_thr=3, window_size=6, max_thr=1.5):
         self.window_size = window_size
         self.num_timesteps_thr = num_timesteps_thr
         self.queue = deque(maxlen=window_size)
         self.max_thr = max_thr
-        self.far_out_thr = far_out_thr
     
     def add_measurement(self, measurement):
         if len(self.queue) > self.window_size:
@@ -30,12 +29,10 @@ class PaddleInsertedDetector:
         if len(self.queue) < self.num_timesteps_thr:
             return False
         last = list(self.queue)[-self.num_timesteps_thr:]
-        # last = [x for x in last if x < self.far_out_thr]
-        print(last)
-        return all(elm < self.max_thr for elm in last)# and len(last) > 0
+        return all(elm < self.max_thr for elm in last)
 
 class OutlierDetector:
-    def __init__(self, thr=2.0, window_size=10):
+    def __init__(self, thr=3.0, window_size=6):
         self.thr = thr
         self.window_size = window_size
         self.queue = deque(maxlen=window_size)
@@ -71,7 +68,6 @@ class RingBuffer:
         if not self.full:
             return gradient
         elms = self.get_all_elements()
-        # print(elms)
         for i in range(1, len(elms)):
             t_prev = stamp_to_sec(elms[i-1].header.stamp)
             t_curr = stamp_to_sec(elms[i].header.stamp)
@@ -111,8 +107,8 @@ class OnlineVehicle(Vehicle):
         self.paddle_forces = {'left': 0.0, 'right': 0.0}
 
         # Physical parameters
-        self.m = 100.0
-        self.I = 100.0
+        self.m = 10.0
+        self.I = 10.0
         self.Cd_linear_long = 10.0
         self.Cd_linear_lat = 100.0
         self.Cd_angular = 10.0

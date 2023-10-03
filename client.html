@@ -37,9 +37,17 @@
 
         <!-- Entities -->
         <a-entity id="target" gltf-model="#myModel" position="0 0 0" rotation="0 0 0" scale="1 1 1"></a-entity>
-        <a-entity position="0 1.5 0" rotation="90 0 0">
+        <a-entity position="3 2.0 0" rotation="90 0 0" scale="2 2 2">
             <a-entity id="flower" gltf-model="#petals" colorize="color: green"></a-entity>
             <a-cylinder color="blue" height="0.05" radius="0.2"></a-cylinder>
+        </a-entity>
+        <a-entity position="10 2.0 10" rotation="90 0 0" scale="2 2 2">
+            <a-entity id="flower" gltf-model="#petals" colorize="color: magenta"></a-entity>
+            <a-cylinder color="yellow" height="0.05" radius="0.2"></a-cylinder>
+        </a-entity>
+        <a-entity position="-7 2.0 15" rotation="90 0 0" scale="2 2 2">
+            <a-entity id="flower" gltf-model="#petals" colorize="color: pink"></a-entity>
+            <a-cylinder color="orange" height="0.05" radius="0.2"></a-cylinder>
         </a-entity>
 
     </a-scene>
@@ -107,7 +115,7 @@
                         z: THREE.MathUtils.radToDeg(euler.z)
                     };
 
-                    // updateCubePose(position, rotation, msg.msg.header.frame_id);
+                    updateCubePose(position, rotation, msg.msg.header.frame_id);
                 }
 
             });
@@ -154,7 +162,6 @@
             // console.log(force_left, clampedForce, normalizedHeight, centroid);
             let forceLeftPosBar = document.querySelector('#forceLeftPos');
             let forceLeftNegBar = document.querySelector('#forceLeftNeg');
-            console.log(forceLeftPosBar);
             if (centroid >= 0.0) {
                 forceLeftPosBar.setAttribute('geometry', { height: normalizedHeight });
                 forceLeftPosBar.setAttribute('position',
@@ -188,7 +195,6 @@
             let centroid = normalizedHeight / 2;
             let forceRightPosBar = document.querySelector('#forceRightPos');
             let forceRightNegBar = document.querySelector('#forceRightNeg');
-            console.log(forceRightPosBar);
             if (centroid >= 0.0) {
                 forceRightPosBar.setAttribute('geometry', { height: normalizedHeight });
                 forceRightPosBar.setAttribute('position',
