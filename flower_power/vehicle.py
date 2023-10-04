@@ -92,8 +92,10 @@ class Vehicle:
 
 
 class OnlineVehicle(Vehicle):
-    def __init__(self):
+    def __init__(self, flip_left_right=False, flip_forward_aft=False):
         super().__init__()
+        self.flip = {'left_right': flip_left_right,
+                     'forward_aft': flip_forward_aft}
         self.measurements_filtered = {
             'left': RingBuffer(), 'right': RingBuffer()}
 
@@ -160,6 +162,13 @@ class OnlineVehicle(Vehicle):
         print()
         F_left = self.measurements_filtered['left'].average_pair_gradient()
         F_right = self.measurements_filtered['right'].average_pair_gradient()
+        if self.flip['left_right']:
+            temp = F_right
+            F_right = F_left
+            F_left = temp
+        if self.flip['forward_aft']:
+            F_left *= -1
+            F_right *= -1
  
         if abs(F_left) < 0.1:
             F_left = 0.0
@@ -209,7 +218,7 @@ class OnlineVehicle(Vehicle):
         print(f'heading: {heading:.2f}')
 
         D_angular = abs(self.Xd.angular.z) * self.Cd_angular * -np.sign(self.Xd.angular.z)
-        alpha = (-F_left + F_right + D_angular) / self.I
+        alpha = (F_left - F_right + D_angular) / self.I
         self.Xd.angular.z += alpha * self.dt
 
         delta = R.from_euler('z', self.Xd.angular.z * self.dt, degrees=False)

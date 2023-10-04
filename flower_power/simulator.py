@@ -11,8 +11,8 @@ from std_msgs.msg import Float32
 class Simulator(Node):
     def __init__(self, dt=0.05):
         super().__init__('simulator')
-        self.vehicles = {'target': PrecomputedVehicle(),
-                         'ego': OnlineVehicle()}
+        self.vehicles = {'ego': OnlineVehicle(flip_left_right=False,
+                                              flip_forward_aft=True)}
         self.timer = self.create_timer(dt, self.tick_callback)
         tss = TimeSynchronizer([Subscriber(self, Range, 'range_left', qos_profile=qos_profile_sensor_data),
                                 Subscriber(self, Range, 'range_right', qos_profile=qos_profile_sensor_data)],
@@ -24,7 +24,7 @@ class Simulator(Node):
                      'force_right': self.create_publisher(Float32, 'force_right', 10)}
 
     def tick_callback(self):
-        self.vehicles['target'].step()
+        # self.vehicles['target'].step()
         for name, vehicle in self.vehicles.items():
             pose_msg = vehicle.get_state()
             pose_stamped_msg = PoseStamped()
