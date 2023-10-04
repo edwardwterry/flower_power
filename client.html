@@ -157,7 +157,7 @@
 
         function setForceLeft(force_left) {
             let clampedForce = Math.max(-10, Math.min(10, force_left));
-            let normalizedHeight = clampedForce / 40 * 0.4;
+            let normalizedHeight = clampedForce / 20 * 0.4;
             let centroid = normalizedHeight / 2;
             // console.log(force_left, clampedForce, normalizedHeight, centroid);
             let forceLeftPosBar = document.querySelector('#forceLeftPos');
@@ -191,7 +191,7 @@
 
         function setForceRight(force_right) {
             let clampedForce = Math.max(-10, Math.min(10, force_right));
-            let normalizedHeight = clampedForce / 40 * 0.4;
+            let normalizedHeight = clampedForce / 20 * 0.4;
             let centroid = normalizedHeight / 2;
             let forceRightPosBar = document.querySelector('#forceRightPos');
             let forceRightNegBar = document.querySelector('#forceRightNeg');

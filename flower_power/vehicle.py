@@ -110,7 +110,7 @@ class OnlineVehicle(Vehicle):
 
         # Physical parameters
         self.m = 10.0
-        self.I = 10.0
+        self.I = 50.0
         self.Cd_linear_long = 10.0
         self.Cd_linear_lat = 100.0
         self.Cd_angular = 10.0
@@ -172,8 +172,16 @@ class OnlineVehicle(Vehicle):
  
         if abs(F_left) < 0.1:
             F_left = 0.0
+        if F_left > 10.0:
+            F_left = 10.0
+        if F_left < -10.0:
+            F_left = -10.0
         if abs(F_right) < 0.1:
             F_right = 0.0
+        if F_right > 10.0:
+            F_right = 10.0
+        if F_right < -10.0:
+            F_right = -10.0           
         self.paddle_forces['left'] = F_left
         self.paddle_forces['right'] = F_right
         print(f'F left: {F_left:.2f}')
