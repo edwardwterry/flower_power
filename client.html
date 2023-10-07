@@ -23,6 +23,19 @@
                     color="green"></a-box>
                 <a-box id="forceRightNeg" position="0.75 -0.2 -0.5" depth="0.05" height=".1" width="0.05"
                     color="green"></a-box>
+                <a-entity id="blue_small" position="-0.2 0.3 -0.5" rotation="90 0 0" scale="0.07 0.07 0.07" visible="true">
+                    <a-entity id="flower" gltf-model="#petals" colorize="color: green"></a-entity>
+                    <a-cylinder color="blue" height="0.05" radius="0.2"></a-cylinder>
+                </a-entity>
+                <a-entity id="yellow_small" position="0.0 0.3 -0.5" rotation="90 0 0" scale="0.07 0.07 0.07" visible="true">
+                    <a-entity id="flower" gltf-model="#petals" colorize="color: magenta"></a-entity>
+                    <a-cylinder color="yellow" height="0.05" radius="0.2"></a-cylinder>
+                </a-entity>
+                <a-entity id="orange_small" position="0.2 0.3 -0.5" rotation="90 0 0" scale="0.07 0.07 0.07" visible="true">
+                    <a-entity id="flower" gltf-model="#petals" colorize="color: pink"></a-entity>
+                    <a-cylinder color="orange" height="0.05" radius="0.2"></a-cylinder>
+                </a-entity>
+                <a-box position="0.0 0.28 -0.5" rotation="0 0 0" scale="0.6 0.15 0.07" material="opacity: 0.5"></a-box>
             </a-camera>
         </a-entity>
         <a-sky color="#e2a31b"></a-sky>
@@ -37,15 +50,15 @@
 
         <!-- Entities -->
         <!-- <a-entity id="target" gltf-model="#myModel" position="0 0 0" rotation="0 0 0" scale="1 1 1"></a-entity> -->
-        <a-entity position="0 1.5 -10" rotation="90 0 0" scale="2 2 2">
+        <a-entity id="blue_big" position="0 1.5 -10" rotation="90 0 0" scale="2 2 2">
             <a-entity id="flower" gltf-model="#petals" colorize="color: green"></a-entity>
             <a-cylinder color="blue" height="0.05" radius="0.2"></a-cylinder>
         </a-entity>
-        <a-entity position="-10 1.5 -20" rotation="90 0 0" scale="2 2 2">
+        <a-entity id="yellow_big" position="-10 1.5 -20" rotation="90 0 0" scale="2 2 2">
             <a-entity id="flower" gltf-model="#petals" colorize="color: magenta"></a-entity>
             <a-cylinder color="yellow" height="0.05" radius="0.2"></a-cylinder>
         </a-entity>
-        <a-entity position="10 1.5 -30" rotation="90 0 0" scale="2 2 2">
+        <a-entity id="orange_big" position="10 1.5 -30" rotation="90 0 0" scale="2 2 2">
             <a-entity id="flower" gltf-model="#petals" colorize="color: pink"></a-entity>
             <a-cylinder color="orange" height="0.05" radius="0.2"></a-cylinder>
         </a-entity>
@@ -93,7 +106,7 @@
                     topic: '/reset',
                     type: 'std_msgs/msg/Empty'
                 };
-                socket.send(JSON.stringify(subscribe_msg));                
+                socket.send(JSON.stringify(subscribe_msg));
             });
 
             socket.addEventListener('message', function (event) {
@@ -105,7 +118,7 @@
                     setForceRight(msg.msg.data);
                 }
                 else if (msg.topic == '/reset') {
-                    //
+                    // make all entities visible again
                 }
                 else {
                     let position = msg.msg.pose.position;
@@ -192,10 +205,10 @@
                         y: centroid,
                         z: forceLeftNegBar.getAttribute('position').z
                     });
-                    forceLeftPosBar.setAttribute('geometry', { height: 0 });
-                    forceLeftPosBar.setAttribute('position', {
+                forceLeftPosBar.setAttribute('geometry', { height: 0 });
+                forceLeftPosBar.setAttribute('position', {
                     x: forceLeftPosBar.getAttribute('position').x, y: 0, z: forceLeftPosBar.getAttribute('position').z
-                });                
+                });
             }
         }
 
@@ -225,10 +238,10 @@
                         y: centroid,
                         z: forceRightNegBar.getAttribute('position').z
                     });
-                    forceRightPosBar.setAttribute('geometry', { height: 0 });
-                    forceRightPosBar.setAttribute('position', {
+                forceRightPosBar.setAttribute('geometry', { height: 0 });
+                forceRightPosBar.setAttribute('position', {
                     x: forceRightPosBar.getAttribute('position').x, y: 0, z: forceRightPosBar.getAttribute('position').z
-                });                
+                });
             }
         }
 
