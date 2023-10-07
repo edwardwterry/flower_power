@@ -120,7 +120,7 @@ class OnlineVehicle(Vehicle):
         self.t_curr = None
         self.dt = None
 
-        self.sink_rate = -0.001
+        self.sink_rate = -0.0001
 
     def update(self, left, right):
         is_outlier = {'left': False, 'right': False}

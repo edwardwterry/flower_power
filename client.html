@@ -12,8 +12,8 @@
 
 <body>
     <a-scene>
-        <a-ocean color="#00aabb" width="500" depth="500" density="100"></a-ocean>
-        <a-entity id="ego">
+        <a-ocean color="#00aabb" width="100" depth="100" density="100"></a-ocean>
+        <a-entity id="ego" distance-check>
             <a-camera id="camera">
                 <a-box id="forceLeftPos" position="-0.75 0.2 -0.5" depth="0.05" height=".1" width="0.05"
                     color="red"></a-box>
@@ -23,16 +23,19 @@
                     color="green"></a-box>
                 <a-box id="forceRightNeg" position="0.75 -0.2 -0.5" depth="0.05" height=".1" width="0.05"
                     color="green"></a-box>
-                <a-entity id="blue_small" position="-0.2 0.3 -0.5" rotation="90 0 0" scale="0.07 0.07 0.07" visible="true">
-                    <a-entity id="flower" gltf-model="#petals" colorize="color: green"></a-entity>
+                <a-entity id="flower_blue_small" position="-0.2 0.3 -0.5" rotation="90 0 0" scale="0.07 0.07 0.07"
+                    visible="false">
+                    <a-entity gltf-model="#petals" colorize="color: green"></a-entity>
                     <a-cylinder color="blue" height="0.05" radius="0.2"></a-cylinder>
                 </a-entity>
-                <a-entity id="yellow_small" position="0.0 0.3 -0.5" rotation="90 0 0" scale="0.07 0.07 0.07" visible="true">
-                    <a-entity id="flower" gltf-model="#petals" colorize="color: magenta"></a-entity>
+                <a-entity id="flower_yellow_small" position="0.0 0.3 -0.5" rotation="90 0 0" scale="0.07 0.07 0.07"
+                    visible="false">
+                    <a-entity gltf-model="#petals" colorize="color: magenta"></a-entity>
                     <a-cylinder color="yellow" height="0.05" radius="0.2"></a-cylinder>
                 </a-entity>
-                <a-entity id="orange_small" position="0.2 0.3 -0.5" rotation="90 0 0" scale="0.07 0.07 0.07" visible="true">
-                    <a-entity id="flower" gltf-model="#petals" colorize="color: pink"></a-entity>
+                <a-entity id="flower_orange_small" position="0.2 0.3 -0.5" rotation="90 0 0" scale="0.07 0.07 0.07"
+                    visible="false">
+                    <a-entity gltf-model="#petals" colorize="color: pink"></a-entity>
                     <a-cylinder color="orange" height="0.05" radius="0.2"></a-cylinder>
                 </a-entity>
                 <a-box position="0.0 0.28 -0.5" rotation="0 0 0" scale="0.6 0.15 0.07" material="opacity: 0.5"></a-box>
@@ -50,16 +53,16 @@
 
         <!-- Entities -->
         <!-- <a-entity id="target" gltf-model="#myModel" position="0 0 0" rotation="0 0 0" scale="1 1 1"></a-entity> -->
-        <a-entity id="blue_big" position="0 1.5 -10" rotation="90 0 0" scale="2 2 2">
-            <a-entity id="flower" gltf-model="#petals" colorize="color: green"></a-entity>
+        <a-entity id="flower_blue_big" position="0 1.5 -10" rotation="90 0 0" scale="2 2 2" visible="true">
+            <a-entity gltf-model="#petals" colorize="color: green"></a-entity>
             <a-cylinder color="blue" height="0.05" radius="0.2"></a-cylinder>
         </a-entity>
-        <a-entity id="yellow_big" position="-10 1.5 -20" rotation="90 0 0" scale="2 2 2">
-            <a-entity id="flower" gltf-model="#petals" colorize="color: magenta"></a-entity>
+        <a-entity id="flower_yellow_big" position="-10 1.5 -20" rotation="90 0 0" scale="2 2 2" visible="true">
+            <a-entity gltf-model="#petals" colorize="color: magenta"></a-entity>
             <a-cylinder color="yellow" height="0.05" radius="0.2"></a-cylinder>
         </a-entity>
-        <a-entity id="orange_big" position="10 1.5 -30" rotation="90 0 0" scale="2 2 2">
-            <a-entity id="flower" gltf-model="#petals" colorize="color: pink"></a-entity>
+        <a-entity id="flower_orange_big" position="10 1.5 -30" rotation="90 0 0" scale="2 2 2" visible="true">
+            <a-entity gltf-model="#petals" colorize="color: pink"></a-entity>
             <a-cylinder color="orange" height="0.05" radius="0.2"></a-cylinder>
         </a-entity>
 
@@ -104,7 +107,7 @@
                 subscribe_msg = {
                     op: 'subscribe',
                     topic: '/reset',
-                    type: 'std_msgs/msg/Empty'
+                    type: 'std_msgs/msg/Bool'
                 };
                 socket.send(JSON.stringify(subscribe_msg));
             });
@@ -118,6 +121,24 @@
                     setForceRight(msg.msg.data);
                 }
                 else if (msg.topic == '/reset') {
+                    if (msg.msg.data) {
+                        // Select all entities with ID that starts with "flower_" and ends with "_big"
+                        let bigFlowers = document.querySelectorAll('[id^="flower_"][id$="_big"]');
+
+                        // Change the visibility of the selected entities
+                        bigFlowers.forEach(el => {
+                            el.setAttribute('visible', true);  // set this to 'true' if you want to make them visible
+                        });
+
+                        // Select all entities with ID that starts with "flower_" and ends with "_small"
+                        let smallFlowers = document.querySelectorAll('[id^="flower_"][id$="_small"]');
+
+                        // Change the visibility of the selected entities
+                        smallFlowers.forEach(el => {
+                            el.setAttribute('visible', false);  // set this to 'true' if you want to make them visible
+                        });
+
+                    }
                     // make all entities visible again
                 }
                 else {
@@ -177,6 +198,39 @@
                 });
             }
         });
+
+        AFRAME.registerComponent('distance-check', {
+            schema: {
+                threshold: { type: 'number', default: 0.5 }  // distance threshold, change as required
+            },
+            tick: function () {
+                // Get the camera's position
+                let cameraPosition = this.el.sceneEl.camera.el.getAttribute('position');
+
+                // Select all visible big flowers
+                let bigFlowers = document.querySelectorAll('[id^="flower_"][id$="_big"][visible="true"]');
+
+                bigFlowers.forEach(flower => {
+                    let flowerPosition = flower.getAttribute('position');
+                    let id = flower.id;
+
+                    // Calculate the distance between camera and flower
+                    let distance = Math.sqrt(
+                        Math.pow(cameraPosition.x - flowerPosition.x, 2) +
+                        Math.pow(cameraPosition.y - flowerPosition.y, 2) +
+                        Math.pow(cameraPosition.z - flowerPosition.z, 2)
+                    );
+
+                    // If the distance is less than the threshold, set the flower to not visible
+                    if (distance < this.data.threshold) {
+                        let smallFlower = document.querySelector('#' + id.replace('_big', '_small'));
+                        flower.setAttribute('visible', false);
+                        smallFlower.setAttribute('visible', true);
+                    }
+                });
+            }
+        });
+
 
         function setForceLeft(force_left) {
             let clampedForce = Math.max(-10, Math.min(10, force_left));
