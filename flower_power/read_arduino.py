@@ -1,5 +1,6 @@
 
 from sensor_msgs.msg import Range
+from std_msgs.msg import Bool
 
 from rclpy.node import Node
 import rclpy
@@ -13,6 +14,7 @@ class SensorReader(Node):
 
         self.left_pub = self.create_publisher(Range, 'range_left', 10)
         self.right_pub = self.create_publisher(Range, 'range_right', 10)
+        self.reset_pub = self.create_publisher(Bool, 'reset', 10)
 
         self.serial_port = serial.Serial(port, baud)
         print(f'Connected to Arduino on {port} at {baud} baud')
@@ -30,11 +32,12 @@ class SensorReader(Node):
                     continue
                 print(data)
                 try:
-                    stamp_ms, left_pulse_time, right_pulse_time = data.split(',')
+                    stamp_ms, left_pulse_time, right_pulse_time, button_pressed = data.split(',')
                 except:
                     continue
                 left_distance = int(left_pulse_time) * 1e-6 * self.speed_sound / 2.0
                 right_distance = int(right_pulse_time) * 1e-6 * self.speed_sound / 2.0
+                reset = True if int(button_pressed) == 1 else False
                 try:
                     secs = int(stamp_ms) // 1000
                     nanosecs = int(stamp_ms) % 1000 * 1000000
@@ -54,6 +57,10 @@ class SensorReader(Node):
                 right_range_msg.header.stamp.nanosec = nanosecs
                 right_range_msg.range = right_distance
                 self.right_pub.publish(right_range_msg)
+
+                reset_msg = Bool()
+                reset_msg.data = reset
+                self.reset_pub.publish(reset_msg)
         
 def main():
     rclpy.init()

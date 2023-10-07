@@ -87,6 +87,13 @@
                     type: 'std_msgs/msg/Float32'
                 };
                 socket.send(JSON.stringify(subscribe_msg));
+
+                subscribe_msg = {
+                    op: 'subscribe',
+                    topic: '/reset',
+                    type: 'std_msgs/msg/Empty'
+                };
+                socket.send(JSON.stringify(subscribe_msg));                
             });
 
             socket.addEventListener('message', function (event) {
@@ -96,6 +103,9 @@
                 }
                 else if (msg.topic == '/force_right') {
                     setForceRight(msg.msg.data);
+                }
+                else if (msg.topic == '/reset') {
+                    //
                 }
                 else {
                     let position = msg.msg.pose.position;

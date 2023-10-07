@@ -120,6 +120,8 @@ class OnlineVehicle(Vehicle):
         self.t_curr = None
         self.dt = None
 
+        self.sink_rate = -0.001
+
     def update(self, left, right):
         is_outlier = {'left': False, 'right': False}
         if not self.outlier_detectors['left'].add_measurement(left.range):
@@ -213,6 +215,7 @@ class OnlineVehicle(Vehicle):
         self.Xd.linear.y += a_linear_world[1] * self.dt
         self.X.position.x += self.Xd.linear.x * self.dt
         self.X.position.y += self.Xd.linear.y * self.dt
+        self.X.position.z += self.sink_rate
         # print(f'D linear x: {D_linear.linear.x:.2f}')
         # print(f'D linear y: {D_linear.linear.y:.2f}')
         # print(f'accel x: {a.linear.x:.2f}')
@@ -242,6 +245,10 @@ class OnlineVehicle(Vehicle):
 
     def get_paddle_forces(self):
         return self.paddle_forces
+    
+    def reset(self):
+        self.__init__(flip_left_right=self.flip['left_right'],
+                      flip_forward_aft=self.flip['forward_aft'])
 
 
 class PrecomputedVehicle(Vehicle):

@@ -6,7 +6,7 @@ from rclpy.qos import qos_profile_sensor_data
 
 from .vehicle import OnlineVehicle, PrecomputedVehicle
 from geometry_msgs.msg import PoseStamped
-from std_msgs.msg import Float32
+from std_msgs.msg import Float32, Bool
 
 class Simulator(Node):
     def __init__(self, dt=0.02):
@@ -18,6 +18,7 @@ class Simulator(Node):
                                 Subscriber(self, Range, 'range_right', qos_profile=qos_profile_sensor_data)],
                                 10)
         tss.registerCallback(self.sensor_callback)
+        self.reset_sub = self.create_subscription(Bool, 'reset', self.reset_callback, 10)
         self.pubs = {'target': self.create_publisher(PoseStamped, 'target/pose', 10),
                      'ego': self.create_publisher(PoseStamped, 'ego/pose', 10),
                      'force_left': self.create_publisher(Float32, 'force_left', 10),
@@ -43,6 +44,10 @@ class Simulator(Node):
     def sensor_callback(self, left_msg, right_msg):
         self.vehicles['ego'].update(left_msg, right_msg)
         self.vehicles['ego'].step()
+
+    def reset_callback(self, msg):
+        if msg.data == True:
+            self.vehicles['ego'].reset()
 
 def main():
     rclpy.init()
