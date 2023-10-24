@@ -201,11 +201,11 @@
 
         AFRAME.registerComponent('distance-check', {
             schema: {
-                threshold: { type: 'number', default: 0.5 }  // distance threshold, change as required
+                threshold: { type: 'number', default: 2.0 }  // distance threshold, change as required
             },
             tick: function () {
                 // Get the camera's position
-                let cameraPosition = this.el.sceneEl.camera.el.getAttribute('position');
+                let cameraPosition = document.querySelector('#ego').getAttribute('position');
 
                 // Select all visible big flowers
                 let bigFlowers = document.querySelectorAll('[id^="flower_"][id$="_big"][visible="true"]');
@@ -217,11 +217,11 @@
                     // Calculate the distance between camera and flower
                     let distance = Math.sqrt(
                         Math.pow(cameraPosition.x - flowerPosition.x, 2) +
-                        Math.pow(cameraPosition.y - flowerPosition.y, 2) +
                         Math.pow(cameraPosition.z - flowerPosition.z, 2)
                     );
 
                     // If the distance is less than the threshold, set the flower to not visible
+                    console.log(distance, this.data.threshold);
                     if (distance < this.data.threshold) {
                         let smallFlower = document.querySelector('#' + id.replace('_big', '_small'));
                         flower.setAttribute('visible', false);

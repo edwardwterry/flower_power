@@ -14,7 +14,7 @@ def stamp_to_sec(stamp):
     return stamp.sec + stamp.nanosec * 1e-9
 
 class PaddleInsertedDetector:
-    def __init__(self, num_timesteps_thr=3, window_size=6, max_thr=1.5):
+    def __init__(self, num_timesteps_thr=2, window_size=4, max_thr=1.0):
         self.window_size = window_size
         self.num_timesteps_thr = num_timesteps_thr
         self.queue = deque(maxlen=window_size)
@@ -100,8 +100,8 @@ class OnlineVehicle(Vehicle):
             'left': RingBuffer(), 'right': RingBuffer()}
 
         self.inserted = {'left': False, 'right': False}
-        self.inserted_filters = {'left': PaddleInsertedDetector(),
-                                 'right': PaddleInsertedDetector()}
+        self.inserted_filters = {'left': PaddleInsertedDetector(max_thr=1.2),
+                                 'right': PaddleInsertedDetector(max_thr=1.1)}
 
         self.outlier_detectors = {'left': OutlierDetector(),
                                   'right': OutlierDetector()}
@@ -120,7 +120,7 @@ class OnlineVehicle(Vehicle):
         self.t_curr = None
         self.dt = None
 
-        self.sink_rate = -0.0001
+        self.sink_rate = -0.0002
 
     def update(self, left, right):
         is_outlier = {'left': False, 'right': False}
@@ -174,16 +174,16 @@ class OnlineVehicle(Vehicle):
  
         if abs(F_left) < 0.1:
             F_left = 0.0
-        if F_left > 10.0:
-            F_left = 10.0
-        if F_left < -10.0:
-            F_left = -10.0
+        if F_left > 15.0:
+            F_left = 15.0
+        if F_left < -15.0:
+            F_left = -15.0
         if abs(F_right) < 0.1:
             F_right = 0.0
-        if F_right > 10.0:
-            F_right = 10.0
-        if F_right < -10.0:
-            F_right = -10.0           
+        if F_right > 15.0:
+            F_right = 15.0
+        if F_right < -15.0:
+            F_right = -15.0           
         self.paddle_forces['left'] = F_left
         self.paddle_forces['right'] = F_right
         print(f'F left: {F_left:.2f}')
